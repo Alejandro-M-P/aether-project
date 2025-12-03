@@ -2,6 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
+// Poniendo las claves directamente aseguramos que no falle
 const firebaseConfig = {
 	apiKey: "AIzaSyCqT7j462Ui4QVogup6RGym-g2iHHer4qE",
 	authDomain: "aether-alejandro-9b32b.firebaseapp.com",

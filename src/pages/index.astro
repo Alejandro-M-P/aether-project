@@ -1,16 +1,47 @@
 ---
+import Layout from '../layouts/Layout.astro';
 
+// 1. AQUÍ IMPORTAMOS (LLAMAMOS AL ARCHIVO)
+import Badge from '../components/Badge.astro';
+import { UniverseCanvas, Transmitter, SearchBar } from '../components/Islands.jsx';
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+<Layout title="AETHER | Archivo">
+
+	<!-- 2. AQUÍ EJECUTAMOS EL FONDO -->
+	<!-- Al poner <UniverseCanvas /> estamos "llamando" a la función dentro de Islands.jsx -->
+	<UniverseCanvas client:load />
+
+	<main class="relative z-10 h-screen w-screen flex flex-col p-6 md:p-12 pointer-events-none">
+
+		<header class="pointer-events-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+			<div>
+				<h1 class="text-5xl md:text-7xl font-serif font-bold tracking-tighter mix-blend-difference text-white">
+					AETHER
+				</h1>
+				<div class="flex gap-2 mt-2">
+					<!-- 3. AQUÍ LLAMAMOS AL BADGE.ASTRO -->
+					<Badge pulse>LIVE FEED</Badge>
+					<Badge>DB: FIREBASE</Badge>
+				</div>
+			</div>
+
+			<div class="w-full md:w-auto">
+				<!-- 4. AQUÍ LLAMAMOS AL BUSCADOR -->
+				<SearchBar client:load />
+			</div>
+		</header>
+
+		<div class="flex-1 flex items-center justify-center opacity-40 mix-blend-overlay">
+			<p class="text-[10px] tracking-[0.5em] uppercase text-center hidden md:block text-zinc-500">
+				Busca un tema para filtrar el ruido
+			</p>
+		</div>
+
+		<div class="pointer-events-auto">
+			<!-- 5. AQUÍ LLAMAMOS AL BOTÓN DE ENVIAR -->
+			<Transmitter client:load />
+		</div>
+
+	</main>
+</Layout>
