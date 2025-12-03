@@ -1,0 +1,7 @@
+---
+const { pulse = false } = Astro.props;
+---
+<div class="flex items-center gap-2 px-3 py-1 rounded-full border border-zinc-800 bg-zinc-900/50 backdrop-blur-md text-[10px] uppercase tracking-widest text-zinc-400 font-mono select-none">
+    {pulse && <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]"></span>}
+    <slot />
+</div>
