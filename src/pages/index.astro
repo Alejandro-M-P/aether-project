@@ -6,13 +6,13 @@ import { UniverseCanvas, Transmitter, SearchBar } from '../components/Islands.js
 
 <Layout title="AETHER">
 
-	<!-- ESTILOS CSS PURO PARA TODA LA PÁGINA -->
+	<!-- ESTILOS CSS PURO PARA TODA LA PÁGINA (Asegura tu estética exacta) -->
 	<style>
 		/* Estilos base del body y header (idénticos a los tuyos) */
 		body {
 			background: #0a0a0a;
 			color: #ffffff;
-			overflow: hidden; /* CRÍTICO: Elimina el scroll blanco */
+			overflow: hidden;
 			margin: 0;
 			padding: 0;
 		}
@@ -30,7 +30,7 @@ import { UniverseCanvas, Transmitter, SearchBar } from '../components/Islands.js
 			backdrop-filter: blur(10px);
 			background: rgba(10, 10, 10, 0.8);
 			border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-			height: 80px;
+			height: 80px; /* Altura fija para la posición absoluta */
 		}
 
 		.logo {
@@ -58,58 +58,13 @@ import { UniverseCanvas, Transmitter, SearchBar } from '../components/Islands.js
 			color: #fff;
 		}
 
-		/* NUEVAS REGLAS DE POSICIONAMIENTO */
-
-		/* Contenedor principal de la UI (Cubre toda la pantalla, encima del canvas) */
-		.ui-layer {
+		/* Posición absoluta para los metadatos y el título */
+		.absolute-center {
 			position: fixed;
-			top: 0;
-			right: 0;
-			bottom: 0;
-			left: 0;
-			z-index: 10;
-			pointer-events: none; /* Permite hacer clic a través de zonas vacías */
-		}
-
-		/* Barra de Control (Buscador y Lanzador) */
-		.control-bar {
-			position: fixed;
-			top: 96px; /* 80px (header) + 16px (margen) */
-			left: 50%;
-			transform: translateX(-50%);
-			z-index: 50;
-			width: 100%;
-			max-width: 600px;
-			padding: 0 1rem;
-		}
-
-		/* Metadatos (Debajo de la barra de control) */
-		.metadata-bar {
-			position: fixed;
-			top: 180px; /* Debajo de la barra de control */
-			left: 50%;
-			transform: translateX(-50%);
-			z-index: 30;
-		}
-
-		/* Título Central */
-		.main-title-container {
-			position: fixed;
-			top: 45%; /* Centrado verticalmente */
+			top: 50%;
 			left: 50%;
 			transform: translate(-50%, -50%);
-			z-index: 20;
 		}
-
-		/* Botón de Lanzamiento (Esquina inferior derecha) */
-		.transmitter-button-container {
-			position: fixed;
-			bottom: 40px;
-			right: 40px;
-			z-index: 50;
-			pointer-events: auto;
-		}
-
 	</style>
 
 
@@ -131,17 +86,19 @@ import { UniverseCanvas, Transmitter, SearchBar } from '../components/Islands.js
     </header>
 
 
-	<!-- 3. CAPA UI FLOTANTE: Contenido principal (Usamos las nuevas clases CSS) -->
-	<div class="ui-layer">
+	<!-- 3. CAPA UI FLOTANTE: Contenido principal -->
+	<!-- Usamos fixed inset-0 para que esta capa cubra 100% de la ventana sin conflicto -->
+	<div class="fixed inset-0 z-10 pointer-events-none select-none">
 
 
         <!-- NUEVA BARRA DE CONTROL (BUSCADOR Y LANZADOR) -->
-        <div class="control-bar">
-            <!-- Contenedor con estética de cristal (Usamos Tailwind en este div interno por la estética de Blur) -->
-            <div class="w-full max-w-sm flex items-center gap-3 md:max-w-xl backdrop-blur-sm bg-black/50 border border-white/5 rounded-xl p-2 md:p-3">
+        <!-- Posición Fixed top: 96px (80px de header + 16px de margen) -->
+        <div class="fixed top-96px left-1/2 transform -translate-x-1/2 z-50 pointer-events-auto w-full max-w-sm px-4">
+            <!-- Contenedor con estética de cristal: Blur, fondo semi-transparente y borde. -->
+            <div class="w-full flex items-center gap-3 backdrop-blur-sm bg-black/50 border border-white/5 rounded-xl p-2 md:p-3">
 
                 <!-- Buscador (SearchBar) - Ocupa la mayor parte del espacio -->
-                <div class="grow">
+                <div class=grow">
                     <SearchBar client:load />
                 </div>
 
@@ -153,7 +110,8 @@ import { UniverseCanvas, Transmitter, SearchBar } from '../components/Islands.js
         </div>
 
 		<!-- DATOS DEL SISTEMA (Metadatos) -->
-		<div class="metadata-bar hidden md:block opacity-70">
+		<!-- top: 96px + 64px de la barra de control = ~160px. Usamos top-[170px] -->
+		<div class="absolute top-[170px] left-1/2 transform -translate-x-1/2 hidden md:block opacity-70 pointer-events-none z-30">
 			<div class="flex gap-6 justify-center">
 
 				<!-- Bloque 1: TTL y Estado -->
@@ -179,7 +137,7 @@ import { UniverseCanvas, Transmitter, SearchBar } from '../components/Islands.js
 		</div>
 
 		<!-- TÍTULO CENTRAL -->
-		<div class="main-title-container">
+		<div class="main-title-container absolute-center">
 			<div class="flex flex-col items-center animate-in fade-in zoom-in duration-1000 ease-out">
 				<h1 class="text-7xl md:text-9xl font-serif font-thin tracking-tighter text-transparent bg-clip-text bg-liniar-to-b from-white via-white/80 to-white/20 drop-shadow-[0_0_30px_rgba(255,255,255,0.15)]">
 					AETHER
@@ -193,10 +151,7 @@ import { UniverseCanvas, Transmitter, SearchBar } from '../components/Islands.js
 			</div>
 		</div>
 
-		<!-- Botón de Transmitir (Esquina inferior derecha) -->
-		<div class="transmitter-button-container">
-			<Transmitter client:load />
-		</div>
+		<!-- Botón de Transmitir (Esquina inferior derecha, ya tiene posicionamiento en el div de la barra de control) -->
 
 	</div>
 </Layout>

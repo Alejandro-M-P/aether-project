@@ -208,7 +208,7 @@ export const Transmitter = () => {
 
 	return (
 		// Modal: Fondo muy oscuro y desenfoque, alineado al centro
-		<div className="fixed inset-0 bg-black/98 backdrop-blur-sm z-9999 flex items-center justify-center p-8">
+		<div className="fixed inset-0 bg-black/98 backdrop-blur-sm z-[9999] flex items-center justify-center p-8">
 			<div className="w-full max-w-2xl relative">
 				<button
 					onClick={() => setOpen(false)}
