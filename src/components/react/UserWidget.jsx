@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { auth } from "../firebase";
+
+// 🚨 CORRECCIÓN IMPORTANTE: Subir dos niveles (../../)
+import { auth } from "../../firebase.js";
+
 import {
 	GoogleAuthProvider,
 	signInWithPopup,

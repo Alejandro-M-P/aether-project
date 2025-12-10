@@ -1,9 +1,12 @@
 import React, { useState } from "react";
 import { Search, X } from "lucide-react";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { db, auth } from "../firebase"; // Importante: importar auth
+
+// 🚨 CORRECCIÓN DE RUTA: Subir dos niveles (../../) para encontrar firebase.js
+import { db, auth } from "../../firebase.js"; 
+// 🚨 CORRECCIÓN DE RUTA: Subir dos niveles (../../) para encontrar store.js
 import { useStore } from "@nanostores/react";
-import { searchQuery } from "../store";
+import { searchQuery } from "../../store.js";
 
 export default function ControlBar() {
 	const $searchQuery = useStore(searchQuery);
@@ -12,7 +15,6 @@ export default function ControlBar() {
 	const [cat, setCat] = useState("");
 	const [isSending, setIsSending] = useState(false);
 
-	// Función para enviar mensaje
 	const send = async (e) => {
 		e.preventDefault();
 		if (!msg.trim() || isSending) return;
@@ -29,7 +31,6 @@ export default function ControlBar() {
 				message: msg,
 				category: cat || "general",
 				timestamp: serverTimestamp(),
-				// AQUÍ SE GUARDAN LOS DATOS DEL PERFIL
 				uid: user.uid,
 				photoURL: user.photoURL,
 				displayName: user.displayName,
@@ -46,7 +47,7 @@ export default function ControlBar() {
 
 	return (
 		<>
-			{/* FOOTER */}
+			{/* FOOTER - Z-INDEX 50 para asegurar que esté encima */}
 			<footer className="fixed bottom-0 left-0 right-0 z-50 w-full px-4 py-8 pointer-events-none flex justify-center">
 				<div className="pointer-events-auto flex items-center gap-2 bg-black/80 backdrop-blur-xl border border-white/10 rounded-full pl-5 pr-2 py-2 shadow-2xl transition-all hover:border-white/20 w-full max-w-lg group">
 					<div className="flex-1 flex items-center gap-3">
@@ -68,9 +69,9 @@ export default function ControlBar() {
 				</div>
 			</footer>
 
-			{/* MODAL */}
+			{/* MODAL - Z-INDEX 60 para estar encima de todo */}
 			{open && (
-				<div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-60 flex items-center justify-center p-6">
+				<div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-[60] flex items-center justify-center p-6">
 					<div className="w-full max-w-lg relative animate-in fade-in zoom-in duration-300">
 						<button
 							onClick={() => setOpen(false)}
