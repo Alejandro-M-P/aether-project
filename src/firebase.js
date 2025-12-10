@@ -11,8 +11,7 @@ const firebaseConfig = {
     appId: "1:183118372728:web:751c92bb7cd8f55857728d",
 };
 
-// Esta línea evita el error de "Duplicate App"
-// Si ya existe una app, la usa; si no, la crea.
+
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
