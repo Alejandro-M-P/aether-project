@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-// AÑADIDO: onAuthStateChanged para escuchar cambios de sesión
+// Importamos onAuthStateChanged para vigilar la sesión
 import { signInAnonymously, onAuthStateChanged } from "firebase/auth";
 import {
 	collection,
@@ -21,7 +21,7 @@ const imageCache = {};
 const MESSAGE_LIFETIME = 60000; // 60 segundos
 const FADE_DURATION = 5000;     // 5 segundos degradado
 
-// 👤 AVATAR POR DEFECTO (Círculo simple en SVG)
+// 👤 AVATAR POR DEFECTO
 const DEFAULT_AVATAR = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 8v4'/%3E%3Cpath d='M12 16h.01'/%3E%3C/svg%3E`;
 
 export const UniverseCanvas = () => {
@@ -34,7 +34,7 @@ export const UniverseCanvas = () => {
 	const [loadingProfile, setLoadingProfile] = useState(false);
 
 	useEffect(() => {
-		// Inicialización de estrellas (solo una vez)
+		// Inicialización de estrellas
 		if (starsRef.current.length === 0) {
 			for (let i = 0; i < 150; i++) {
 				starsRef.current.push({
@@ -49,23 +49,20 @@ export const UniverseCanvas = () => {
 
 		let unsubscribeSnapshot = null;
 
-		// 1. ESCUCHA DE AUTENTICACIÓN (La clave del arreglo)
-		// Esperamos a que Firebase nos diga "OK, hay usuario" antes de conectar a la DB
+		// 1. ESCUCHA DE AUTENTICACIÓN
 		const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
 			if (!user) {
-				// Si no hay usuario, forzamos el login anónimo y esperamos
 				signInAnonymously(auth).catch((error) => console.error("Error Auth Anónimo:", error));
 				return;
 			}
 
-			// 2. CONEXIÓN A LA BASE DE DATOS (Solo cuando ya hay user)
+			// 2. CONEXIÓN A LA BASE DE DATOS (Solo con usuario)
 			const q = query(
 				collection(db, "thoughts"),
 				orderBy("timestamp", "desc"),
 				limit(60)
 			);
 
-			// Limpiamos listener anterior si hubo reconexión
 			if (unsubscribeSnapshot) unsubscribeSnapshot();
 
 			unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
@@ -78,10 +75,8 @@ export const UniverseCanvas = () => {
 				snapshot.docs.forEach((doc) => {
 					const data = doc.data();
 					if (data.message) {
-						// Fallback por si timestamp es null (latencia local)
 						const createdAt = data.timestamp ? data.timestamp.toMillis() : Date.now();
 
-						// --- LÓGICA DE IMAGEN ---
 						const avatarUrl = data.photoURL || DEFAULT_AVATAR;
 						let imgObj = null;
 
@@ -97,7 +92,6 @@ export const UniverseCanvas = () => {
 							imageCache[avatarUrl] = img;
 							imgObj = img;
 						}
-						// ------------------------
 
 						const existing = currentParticlesMap.get(doc.id);
 
@@ -119,11 +113,10 @@ export const UniverseCanvas = () => {
 				});
 				particlesRef.current = valid;
 			}, (error) => {
-				console.error("Error escuchando mensajes (Posible problema de reglas o conexión):", error);
+				console.error("Error escuchando mensajes:", error);
 			});
 		});
 
-		// Limpieza al desmontar el componente
 		return () => {
 			unsubscribeAuth();
 			if (unsubscribeSnapshot) unsubscribeSnapshot();
@@ -230,18 +223,15 @@ export const UniverseCanvas = () => {
 					const finalAlpha = Math.max(0, baseAlpha * lifeAlpha);
 					ctx.globalAlpha = finalAlpha;
 
-					// --- DIBUJAR AVATAR (Con Fallback) ---
 					const size = 24;
 					const avX = p.x - size - 10;
 					const avY = p.y - size / 1.5;
 
-					// 1. Dibujar círculo de fondo siempre (por si la imagen es transparente o carga)
 					ctx.beginPath();
 					ctx.arc(avX + size / 2, avY + size / 2, size / 2, 0, Math.PI * 2);
-					ctx.fillStyle = `rgba(30, 30, 30, ${finalAlpha})`; // Gris oscuro
+					ctx.fillStyle = `rgba(30, 30, 30, ${finalAlpha})`;
 					ctx.fill();
 
-					// 2. Intentar dibujar la imagen si está lista
 					if (p.imgElement && p.imgElement.complete && p.imgElement.naturalHeight !== 0) {
 						ctx.save();
 						ctx.beginPath();
@@ -250,21 +240,17 @@ export const UniverseCanvas = () => {
 						ctx.clip();
 						try {
 							ctx.drawImage(p.imgElement, avX, avY, size, size);
-						} catch (e) {
-							// Ignorar errores de dibujo
-						}
+						} catch (e) {}
 						ctx.restore();
 					}
 
-					// 3. Borde final
 					ctx.beginPath();
 					ctx.arc(avX + size / 2, avY + size / 2, size / 2, 0, Math.PI * 2);
 					ctx.strokeStyle = `rgba(255,255,255,${0.4 * lifeAlpha})`;
 					ctx.lineWidth = 1;
 					ctx.stroke();
 
-					// --- DIBUJAR TEXTO ---
-					ctx.fillStyle = "#ffffff"; // Asegurar color blanco
+					ctx.fillStyle = "#ffffff";
 					ctx.fillText(p.text, p.x, p.y);
 					
 					ctx.globalAlpha = 1;
@@ -346,3 +332,5 @@ export const UniverseCanvas = () => {
 export default function Islands() {
 	return null;
 }
+
+// 🚀 CAMBIO FORZADO: Actualización Vercel V2
