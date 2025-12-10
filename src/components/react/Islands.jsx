@@ -18,10 +18,10 @@ const imageCache = {};
 
 // CONFIGURACIÓN DE TIEMPO
 const MESSAGE_LIFETIME = 60000; // 60 segundos
-const FADE_DURATION = 5000;     // 5 segundos de degradado
+const FADE_DURATION = 5000;     // 5 segundos degradado
 
-// 👤 AVATAR POR DEFECTO CORREGIDO (Con width/height explícitos para Canvas)
-const DEFAULT_AVATAR = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E`;
+// 👤 AVATAR POR DEFECTO (Círculo simple en SVG)
+const DEFAULT_AVATAR = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 8v4'/%3E%3Cpath d='M12 16h.01'/%3E%3C/svg%3E`;
 
 export const UniverseCanvas = () => {
 	const canvasRef = useRef(null);
@@ -67,7 +67,7 @@ export const UniverseCanvas = () => {
 				if (data.message) {
 					const createdAt = data.timestamp ? data.timestamp.toMillis() : Date.now();
 
-					// --- LÓGICA DE IMAGEN MEJORADA ---
+					// --- LÓGICA DE IMAGEN ROBUSTA ---
 					const avatarUrl = data.photoURL || DEFAULT_AVATAR;
 					let imgObj = null;
 
@@ -75,8 +75,13 @@ export const UniverseCanvas = () => {
 						imgObj = imageCache[avatarUrl];
 					} else {
 						const img = new Image();
-						// IMPORTANTE: crossOrigin ANTES del src
-						img.crossOrigin = "Anonymous"; 
+						
+						// Solo aplicamos referrerPolicy si es una URL externa (Google), no para data:
+						if (!avatarUrl.startsWith("data:")) {
+							img.crossOrigin = "Anonymous";
+							img.referrerPolicy = "no-referrer";
+						}
+						
 						img.src = avatarUrl;
 						imageCache[avatarUrl] = img;
 						imgObj = img;
@@ -203,17 +208,22 @@ export const UniverseCanvas = () => {
 					ctx.fillStyle = "#ffffff";
 					
 					const baseAlpha = filterText ? 1 : 0.9;
-					ctx.globalAlpha = Math.max(0, baseAlpha * lifeAlpha);
+					const finalAlpha = Math.max(0, baseAlpha * lifeAlpha);
+					ctx.globalAlpha = finalAlpha;
 
-					// --- DIBUJAR AVATAR ---
-					// Verificamos imgElement y complete
-					if (p.imgElement && p.imgElement.complete) {
-						// Si naturalHeight es 0, podría ser un SVG sin dimensiones (ahora corregido)
-						// O una imagen rota. Intentamos dibujar igual si es SVG con dimensiones en string.
-						const size = 24;
-						const avX = p.x - size - 10;
-						const avY = p.y - size / 1.5; 
+					// --- DIBUJAR AVATAR (Con Fallback) ---
+					const size = 24;
+					const avX = p.x - size - 10;
+					const avY = p.y - size / 1.5;
 
+					// 1. Dibujar círculo de fondo siempre (por si la imagen es transparente o carga)
+					ctx.beginPath();
+					ctx.arc(avX + size / 2, avY + size / 2, size / 2, 0, Math.PI * 2);
+					ctx.fillStyle = `rgba(30, 30, 30, ${finalAlpha})`; // Gris oscuro
+					ctx.fill();
+
+					// 2. Intentar dibujar la imagen si está lista
+					if (p.imgElement && p.imgElement.complete && p.imgElement.naturalHeight !== 0) {
 						ctx.save();
 						ctx.beginPath();
 						ctx.arc(avX + size / 2, avY + size / 2, size / 2, 0, Math.PI * 2);
@@ -222,19 +232,22 @@ export const UniverseCanvas = () => {
 						try {
 							ctx.drawImage(p.imgElement, avX, avY, size, size);
 						} catch (e) {
-							// Si falla el dibujo, no hacemos nada (evita romper el loop)
+							// Ignorar errores de dibujo
 						}
 						ctx.restore();
-
-						ctx.beginPath();
-						ctx.arc(avX + size / 2, avY + size / 2, size / 2, 0, Math.PI * 2);
-						ctx.strokeStyle = `rgba(255,255,255,${0.4 * lifeAlpha})`;
-						ctx.lineWidth = 1;
-						ctx.stroke();
 					}
 
+					// 3. Borde final
+					ctx.beginPath();
+					ctx.arc(avX + size / 2, avY + size / 2, size / 2, 0, Math.PI * 2);
+					ctx.strokeStyle = `rgba(255,255,255,${0.4 * lifeAlpha})`;
+					ctx.lineWidth = 1;
+					ctx.stroke();
+
 					// --- DIBUJAR TEXTO ---
+					ctx.fillStyle = "#ffffff"; // Asegurar color blanco
 					ctx.fillText(p.text, p.x, p.y);
+					
 					ctx.globalAlpha = 1;
 				}
 			});
