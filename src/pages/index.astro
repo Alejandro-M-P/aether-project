@@ -1,157 +1,94 @@
 ---
 import Layout from '../layouts/Layout.astro';
-// Importamos los componentes individuales
 import { UniverseCanvas, Transmitter, SearchBar } from '../components/Islands.jsx';
 ---
 
 <Layout title="AETHER">
 
-	<!-- ESTILOS CSS PURO PARA TODA LA PÁGINA (Asegura tu estética exacta) -->
 	<style>
-		/* Estilos base del body y header (idénticos a los tuyos) */
 		body {
-			background: #0a0a0a;
-			color: #ffffff;
-			overflow: hidden;
+			background-color: #050505; /* Casi negro */
+			color: #e0e0e0; /* Blanco apagado para leer mejor */
 			margin: 0;
-			padding: 0;
+			overflow-y: auto; /* Scroll vertical activado */
+			font-family: monospace; /* Fuente tipo terminal */
 		}
 
-		header {
+		/* Estilo de la barra fija en el footer */
+		.footer-dock {
 			position: fixed;
-			top: 0;
+			bottom: 0;
 			left: 0;
-			right: 0;
-			z-index: 1000;
-			padding: 1.5rem 2rem;
+			width: 100%;
+			z-index: 9999;
+			padding: 1rem;
+			/* Degradado para que el texto no se corte bruscamente detrás de la barra */
+			background: linear-gradient(to top, #000000 80%, transparent 100%);
 			display: flex;
-			justify-content: space-between;
+			justify-content: center;
+		}
+
+		/* Contenedor central de la barra para limitar el ancho */
+		.dock-container {
+			width: 100%;
+			max-width: 600px;
+			display: flex;
+			gap: 10px;
 			align-items: center;
-			backdrop-filter: blur(10px);
-			background: rgba(10, 10, 10, 0.8);
-			border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-			height: 80px; /* Altura fija para la posición absoluta */
-		}
-
-		.logo {
-			font-size: 1.5rem;
-			font-weight: 600;
-			color: #fff;
-			text-decoration: none;
-			letter-spacing: -0.02em;
-		}
-
-		nav ul {
-			display: flex;
-			gap: 2rem;
-			list-style: none;
-		}
-
-		nav a {
-			color: rgba(255, 255, 255, 0.7);
-			text-decoration: none;
-			font-size: 0.9rem;
-			transition: color 0.2s;
-		}
-
-		nav a:hover {
-			color: #fff;
-		}
-
-		/* Posición absoluta para los metadatos y el título */
-		.absolute-center {
-			position: fixed;
-			top: 50%;
-			left: 50%;
-			transform: translate(-50%, -50%);
 		}
 	</style>
 
-
-	<!-- 1. CAPA BASE: El Universo (Canvas) - Z-0 -->
 	<UniverseCanvas client:load />
 
-    <!-- 2. HEADER MINIMALISTA (Usando la etiqueta <header> con tu CSS) -->
-    <header>
-        <!-- Logo -->
-        <a href="/" class="logo">Aether</a>
-        <!-- Navegación -->
-        <nav>
-            <ul>
-                <li><a href="#universe">Universe</a></li>
-                <li><a href="#about">About</a></li>
-                <li><a href="#contact">Contact</a></li>
-            </ul>
-        </nav>
-    </header>
+	<main class="relative z-10 max-w-2xl mx-auto px-6 py-20 space-y-24">
 
+		<section class="text-center space-y-4">
+			<h1 class="text-6xl font-bold tracking-tighter text-white">AETHER</h1>
+			<p class="text-zinc-500 uppercase tracking-widest text-xs">Sistema de Comunicación de Vacío</p>
+		</section>
 
-	<!-- 3. CAPA UI FLOTANTE: Contenido principal -->
-	<!-- Usamos fixed inset-0 para que esta capa cubra 100% de la ventana sin conflicto -->
-	<div class="fixed inset-0 z-10 pointer-events-none select-none">
+		<section class="space-y-4">
+			<h2 class="text-xl text-white border-b border-zinc-800 pb-2">Registro de Señal #001</h2>
+			<p>Iniciando secuencia de arranque. Los sensores detectan fluctuaciones mínimas en el cuadrante alfa. La oscuridad es absoluta, pero la señal persiste. Necesitamos más datos para triangular la posición de los ecos.</p>
+			<p class="text-zinc-600 italic">...esperando transmisión...</p>
+		</section>
 
+		<section class="space-y-4">
+			<h2 class="text-xl text-white border-b border-zinc-800 pb-2">Anomalía Detectada</h2>
+			<p>Se ha observado un patrón recurrente en el ruido de fondo estático. No parece ser radiación cósmica aleatoria. Alguien, o algo, está intentando comunicarse a través de las capas de sub-espacio.</p>
+		</section>
 
-        <!-- NUEVA BARRA DE CONTROL (BUSCADOR Y LANZADOR) -->
-        <!-- Posición Fixed top: 96px (80px de header + 16px de margen) -->
-        <div class="fixed top-96px left-1/2 transform -translate-x-1/2 z-50 pointer-events-auto w-full max-w-sm px-4">
-            <!-- Contenedor con estética de cristal: Blur, fondo semi-transparente y borde. -->
-            <div class="w-full flex items-center gap-3 backdrop-blur-sm bg-black/50 border border-white/5 rounded-xl p-2 md:p-3">
+		<section class="space-y-4">
+			<h2 class="text-xl text-white border-b border-zinc-800 pb-2">Estado del Transmisor</h2>
+			<p>Los módulos de envío funcionan al 98% de capacidad. La latencia con el servidor central es despreciable. Preparados para inyectar nuevos mensajes en la corriente de datos.</p>
+		</section>
 
-                <!-- Buscador (SearchBar) - Ocupa la mayor parte del espacio -->
-                <div class=grow">
-                    <SearchBar client:load />
-                </div>
+		<section class="space-y-4">
+			<h2 class="text-xl text-white border-b border-zinc-800 pb-2">Notas del Archivo</h2>
+			<p>Los mensajes antiguos se disuelven en la entropía después de 120 segundos. Es la naturaleza efímera de este sistema. Lo que no se observa, desaparece.</p>
+			<div class="h-32 bg-zinc-900/50 rounded-lg border border-zinc-800 flex items-center justify-center text-zinc-700">
+				[DATOS CORRUPTOS]
+			</div>
+		</section>
 
-                <!-- Lanzador (Transmitter) - Se coloca a la derecha -->
-                <div class="shrink-0">
-                    <Transmitter client:load />
-                </div>
-            </div>
-        </div>
+		<section class="space-y-4">
+			<h2 class="text-xl text-white border-b border-zinc-800 pb-2">Fin del Registro</h2>
+			<p>Desplázate hacia abajo para acceder a la consola de mando. La interfaz de usuario debería estar anclada en la parte inferior de tu visor visual.</p>
+			<br/><br/><br/><br/>
+			<p class="text-center text-zinc-800 text-sm">-- FIN DE LÍNEA --</p>
+			<br/><br/><br/><br/> </section>
 
-		<!-- DATOS DEL SISTEMA (Metadatos) -->
-		<!-- top: 96px + 64px de la barra de control = ~160px. Usamos top-[170px] -->
-		<div class="absolute top-[170px] left-1/2 transform -translate-x-1/2 hidden md:block opacity-70 pointer-events-none z-30">
-			<div class="flex gap-6 justify-center">
+	</main>
 
-				<!-- Bloque 1: TTL y Estado -->
-				<div class="border-r border-white/10 pr-6 space-y-1">
-					<p class="text-[9px] font-mono text-zinc-500 tracking-widest uppercase">
-						TTL: <span class="text-zinc-300">120s</span>
-					</p>
-					<p class="text-[9px] font-mono text-zinc-500 tracking-widest uppercase">
-						Estado: <span class="text-emerald-500/80 animate-pulse">En Línea</span>
-					</p>
-				</div>
-
-				<!-- Bloque 2: Conexión -->
-				<div class="space-y-1">
-					<p class="text-[9px] font-mono text-zinc-600 tracking-widest uppercase">
-						FIREBASE AUTH
-					</p>
-					<p class="text-[9px] font-mono text-zinc-700 tracking-widest uppercase">
-						CONEXIÓN SEGURA
-					</p>
-				</div>
+	<div class="footer-dock pointer-events-auto">
+		<div class="dock-container">
+			<div class="grow">
+				<SearchBar client:load />
+			</div>
+			<div class="shrink-0">
+				<Transmitter client:load />
 			</div>
 		</div>
-
-		<!-- TÍTULO CENTRAL -->
-		<div class="main-title-container absolute-center">
-			<div class="flex flex-col items-center animate-in fade-in zoom-in duration-1000 ease-out">
-				<h1 class="text-7xl md:text-9xl font-serif font-thin tracking-tighter text-transparent bg-clip-text bg-liniar-to-b from-white via-white/80 to-white/20 drop-shadow-[0_0_30px_rgba(255,255,255,0.15)]">
-					AETHER
-				</h1>
-
-				<div class="h-px w-24 md:w-40 bg-liniar-to-r from-transparent via-white/20 to-transparent my-6 md:my-8"></div>
-
-				<p class="text-[9px] md:text-[10px] tracking-[0.6em] md:tracking-[0.8em] uppercase text-zinc-500 font-light mix-blend-plus-lighter">
-					El vacío escucha
-				</p>
-			</div>
-		</div>
-
-		<!-- Botón de Transmitir (Esquina inferior derecha, ya tiene posicionamiento en el div de la barra de control) -->
-
 	</div>
+
 </Layout>
