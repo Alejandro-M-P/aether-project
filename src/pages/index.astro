@@ -1,94 +1,69 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { UniverseCanvas, Transmitter, SearchBar } from '../components/Islands.jsx';
+import '../styles/global.css';
 ---
 
-<Layout title="AETHER">
+<Layout title="AETHER | Protocolo de Inicio">
 
-	<style>
-		body {
-			background-color: #050505; /* Casi negro */
-			color: #e0e0e0; /* Blanco apagado para leer mejor */
-			margin: 0;
-			overflow-y: auto; /* Scroll vertical activado */
-			font-family: monospace; /* Fuente tipo terminal */
-		}
+	<main class="relative z-10 w-full min-h-screen bg-black flex flex-col items-center justify-center p-6 select-none overflow-hidden">
 
-		/* Estilo de la barra fija en el footer */
-		.footer-dock {
-			position: fixed;
-			bottom: 0;
-			left: 0;
-			width: 100%;
-			z-index: 9999;
-			padding: 1rem;
-			/* Degradado para que el texto no se corte bruscamente detrás de la barra */
-			background: linear-gradient(to top, #000000 80%, transparent 100%);
-			display: flex;
-			justify-content: center;
-		}
+		<div class="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)]  pointer-events-none"></div>
 
-		/* Contenedor central de la barra para limitar el ancho */
-		.dock-container {
-			width: 100%;
-			max-width: 600px;
-			display: flex;
-			gap: 10px;
-			align-items: center;
-		}
-	</style>
+		<div class="max-w-3xl w-full space-y-24 text-center relative z-20">
 
-	<UniverseCanvas client:load />
+			<header class="space-y-6 animate-in fade-in duration-1000 slide-in-from-bottom-10">
+				<h1 class="text-6xl md:text-9xl font-bold tracking-tighter text-white font-mono drop-shadow-[0_0_30px_rgba(255,255,255,0.1)]">
+					AETHER
+				</h1>
+				<p class="text-lg md:text-xl text-zinc-400 font-light tracking-wide max-w-xl mx-auto">
+					Donde los pensamientos se convierten en polvo de estrellas.
+				</p>
+			</header>
 
-	<main class="relative z-10 max-w-2xl mx-auto px-6 py-20 space-y-24">
+			<div class="grid grid-cols-1 md:grid-cols-3 gap-8 text-left animate-in fade-in duration-1000 delay-300 slide-in-from-bottom-10 fill-mode-backwards">
 
-		<section class="text-center space-y-4">
-			<h1 class="text-6xl font-bold tracking-tighter text-white">AETHER</h1>
-			<p class="text-zinc-500 uppercase tracking-widest text-xs">Sistema de Comunicación de Vacío</p>
-		</section>
+				<div class="space-y-3 p-6 border border-zinc-800/50 bg-zinc-900/20 rounded-xl hover:border-zinc-700 transition-colors group">
+					<div class="w-10 h-10 bg-zinc-800 rounded-lg flex items-center justify-center text-white mb-2 group-hover:bg-zinc-700 transition-colors">
+						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+					</div>
+					<h3 class="text-white font-mono uppercase tracking-wider text-sm">Libertad sin Juicios</h3>
+					<p class="text-zinc-500 text-sm leading-relaxed">
+						Expresa lo que sientes sin miedo. Aquí no hay perfiles ni historial, solo tu mensaje puro y anónimo.
+					</p>
+				</div>
 
-		<section class="space-y-4">
-			<h2 class="text-xl text-white border-b border-zinc-800 pb-2">Registro de Señal #001</h2>
-			<p>Iniciando secuencia de arranque. Los sensores detectan fluctuaciones mínimas en el cuadrante alfa. La oscuridad es absoluta, pero la señal persiste. Necesitamos más datos para triangular la posición de los ecos.</p>
-			<p class="text-zinc-600 italic">...esperando transmisión...</p>
-		</section>
+				<div class="space-y-3 p-6 border border-zinc-800/50 bg-zinc-900/20 rounded-xl hover:border-zinc-700 transition-colors group">
+					<div class="w-10 h-10 bg-zinc-800 rounded-lg flex items-center justify-center text-white mb-2 group-hover:bg-zinc-700 transition-colors">
+						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/></svg>
+					</div>
+					<h3 class="text-white font-mono uppercase tracking-wider text-sm">Desahogo Instantáneo</h3>
+					<p class="text-zinc-500 text-sm leading-relaxed">
+						Libera esa carga mental. Tus palabras se desvanecen en el tiempo, perfecto para soltar y seguir adelante.
+					</p>
+				</div>
 
-		<section class="space-y-4">
-			<h2 class="text-xl text-white border-b border-zinc-800 pb-2">Anomalía Detectada</h2>
-			<p>Se ha observado un patrón recurrente en el ruido de fondo estático. No parece ser radiación cósmica aleatoria. Alguien, o algo, está intentando comunicarse a través de las capas de sub-espacio.</p>
-		</section>
+				<div class="space-y-3 p-6 border border-zinc-800/50 bg-zinc-900/20 rounded-xl hover:border-zinc-700 transition-colors group">
+					<div class="w-10 h-10 bg-zinc-800 rounded-lg flex items-center justify-center text-white mb-2 group-hover:bg-zinc-700 transition-colors">
+						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+					</div>
+					<h3 class="text-white font-mono uppercase tracking-wider text-sm">Escucha Activa</h3>
+					<p class="text-zinc-500 text-sm leading-relaxed">
+						Sintoniza con otros humanos. Lee lo que el mundo está sintiendo o pensando en este preciso instante.
+					</p>
+				</div>
 
-		<section class="space-y-4">
-			<h2 class="text-xl text-white border-b border-zinc-800 pb-2">Estado del Transmisor</h2>
-			<p>Los módulos de envío funcionan al 98% de capacidad. La latencia con el servidor central es despreciable. Preparados para inyectar nuevos mensajes en la corriente de datos.</p>
-		</section>
-
-		<section class="space-y-4">
-			<h2 class="text-xl text-white border-b border-zinc-800 pb-2">Notas del Archivo</h2>
-			<p>Los mensajes antiguos se disuelven en la entropía después de 120 segundos. Es la naturaleza efímera de este sistema. Lo que no se observa, desaparece.</p>
-			<div class="h-32 bg-zinc-900/50 rounded-lg border border-zinc-800 flex items-center justify-center text-zinc-700">
-				[DATOS CORRUPTOS]
 			</div>
-		</section>
 
-		<section class="space-y-4">
-			<h2 class="text-xl text-white border-b border-zinc-800 pb-2">Fin del Registro</h2>
-			<p>Desplázate hacia abajo para acceder a la consola de mando. La interfaz de usuario debería estar anclada en la parte inferior de tu visor visual.</p>
-			<br/><br/><br/><br/>
-			<p class="text-center text-zinc-800 text-sm">-- FIN DE LÍNEA --</p>
-			<br/><br/><br/><br/> </section>
-
-	</main>
-
-	<div class="footer-dock pointer-events-auto">
-		<div class="dock-container">
-			<div class="grow">
-				<SearchBar client:load />
+			<div class="animate-in fade-in duration-1000 delay-500 slide-in-from-bottom-10 fill-mode-backwards">
+				<a
+					href="/app"
+					class="group relative inline-flex items-center gap-4 px-12 py-4 bg-white text-black font-mono font-bold uppercase tracking-[0.2em] hover:bg-zinc-200 transition-all active:scale-95"
+				>
+					Iniciar Secuencia
+					<svg class="w-4 h-4 transition-transform group-hover:translate-x-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+				</a>
 			</div>
-			<div class="shrink-0">
-				<Transmitter client:load />
-			</div>
+
 		</div>
-	</div>
-
+	</main>
 </Layout>
