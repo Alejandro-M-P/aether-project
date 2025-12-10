@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 
-// 🚨 CORRECCIÓN IMPORTANTE: Subir dos niveles (../../)
 import { auth } from "../../firebase.js";
 
 import {

@@ -216,7 +216,7 @@ export const UniverseCanvas = () => {
 					const avX = p.x - size - 10;
 					const avY = p.y - size / 1.5;
 
-					// 1. Dibujar círculo de fondo siempre (por si la imagen es transparente o carga)
+					
 					ctx.beginPath();
 					ctx.arc(avX + size / 2, avY + size / 2, size / 2, 0, Math.PI * 2);
 					ctx.fillStyle = `rgba(30, 30, 30, ${finalAlpha})`; // Gris oscuro
