@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { signInAnonymously } from "firebase/auth";
+// AÑADIDO: onAuthStateChanged para escuchar cambios de sesión
+import { signInAnonymously, onAuthStateChanged } from "firebase/auth";
 import {
 	collection,
 	onSnapshot,
@@ -33,10 +34,7 @@ export const UniverseCanvas = () => {
 	const [loadingProfile, setLoadingProfile] = useState(false);
 
 	useEffect(() => {
-		if (!auth.currentUser) {
-			signInAnonymously(auth).catch(() => {});
-		}
-
+		// Inicialización de estrellas (solo una vez)
 		if (starsRef.current.length === 0) {
 			for (let i = 0; i < 150; i++) {
 				starsRef.current.push({
@@ -49,66 +47,87 @@ export const UniverseCanvas = () => {
 			}
 		}
 
-		const q = query(
-			collection(db, "thoughts"),
-			orderBy("timestamp", "desc"),
-			limit(60)
-		);
+		let unsubscribeSnapshot = null;
 
-		const unsubscribe = onSnapshot(q, (snapshot) => {
-			const currentParticlesMap = new Map(
-				particlesRef.current.map(p => [p.id, p])
+		// 1. ESCUCHA DE AUTENTICACIÓN (La clave del arreglo)
+		// Esperamos a que Firebase nos diga "OK, hay usuario" antes de conectar a la DB
+		const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+			if (!user) {
+				// Si no hay usuario, forzamos el login anónimo y esperamos
+				signInAnonymously(auth).catch((error) => console.error("Error Auth Anónimo:", error));
+				return;
+			}
+
+			// 2. CONEXIÓN A LA BASE DE DATOS (Solo cuando ya hay user)
+			const q = query(
+				collection(db, "thoughts"),
+				orderBy("timestamp", "desc"),
+				limit(60)
 			);
-			
-			const valid = [];
-			
-			snapshot.docs.forEach((doc) => {
-				const data = doc.data();
-				if (data.message) {
-					const createdAt = data.timestamp ? data.timestamp.toMillis() : Date.now();
 
-					// --- LÓGICA DE IMAGEN ROBUSTA ---
-					const avatarUrl = data.photoURL || DEFAULT_AVATAR;
-					let imgObj = null;
+			// Limpiamos listener anterior si hubo reconexión
+			if (unsubscribeSnapshot) unsubscribeSnapshot();
 
-					if (imageCache[avatarUrl]) {
-						imgObj = imageCache[avatarUrl];
-					} else {
-						const img = new Image();
-						
-						// Solo aplicamos referrerPolicy si es una URL externa (Google), no para data:
-						if (!avatarUrl.startsWith("data:")) {
-							img.crossOrigin = "Anonymous";
-							img.referrerPolicy = "no-referrer";
+			unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
+				const currentParticlesMap = new Map(
+					particlesRef.current.map(p => [p.id, p])
+				);
+				
+				const valid = [];
+				
+				snapshot.docs.forEach((doc) => {
+					const data = doc.data();
+					if (data.message) {
+						// Fallback por si timestamp es null (latencia local)
+						const createdAt = data.timestamp ? data.timestamp.toMillis() : Date.now();
+
+						// --- LÓGICA DE IMAGEN ---
+						const avatarUrl = data.photoURL || DEFAULT_AVATAR;
+						let imgObj = null;
+
+						if (imageCache[avatarUrl]) {
+							imgObj = imageCache[avatarUrl];
+						} else {
+							const img = new Image();
+							if (!avatarUrl.startsWith("data:")) {
+								img.crossOrigin = "Anonymous";
+								img.referrerPolicy = "no-referrer";
+							}
+							img.src = avatarUrl;
+							imageCache[avatarUrl] = img;
+							imgObj = img;
 						}
-						
-						img.src = avatarUrl;
-						imageCache[avatarUrl] = img;
-						imgObj = img;
+						// ------------------------
+
+						const existing = currentParticlesMap.get(doc.id);
+
+						valid.push({
+							id: doc.id,
+							x: existing ? existing.x : Math.random() * window.innerWidth,
+							y: existing ? existing.y : Math.random() * window.innerHeight,
+							text: data.message,
+							category: data.category ? String(data.category).toUpperCase() : "GENERAL",
+							uid: data.uid,
+							displayName: data.displayName,
+							photoURL: data.photoURL, 
+							imgElement: imgObj,      
+							vx: existing ? existing.vx : (Math.random() - 0.5) * 0.3,
+							vy: existing ? existing.vy : (Math.random() - 0.5) * 0.3,
+							createdAt: createdAt,
+						});
 					}
-					// ---------------------------------
-
-					const existing = currentParticlesMap.get(doc.id);
-
-					valid.push({
-						id: doc.id,
-						x: existing ? existing.x : Math.random() * window.innerWidth,
-						y: existing ? existing.y : Math.random() * window.innerHeight,
-						text: data.message,
-						category: data.category ? String(data.category).toUpperCase() : "GENERAL",
-						uid: data.uid,
-						displayName: data.displayName,
-						photoURL: data.photoURL, 
-						imgElement: imgObj,      
-						vx: existing ? existing.vx : (Math.random() - 0.5) * 0.3,
-						vy: existing ? existing.vy : (Math.random() - 0.5) * 0.3,
-						createdAt: createdAt,
-					});
-				}
+				});
+				particlesRef.current = valid;
+			}, (error) => {
+				console.error("Error escuchando mensajes (Posible problema de reglas o conexión):", error);
 			});
-			particlesRef.current = valid;
 		});
-		return () => unsubscribe();
+
+		// Limpieza al desmontar el componente
+		return () => {
+			unsubscribeAuth();
+			if (unsubscribeSnapshot) unsubscribeSnapshot();
+		};
 	}, []);
 
 	const handleCanvasClick = (e) => {
@@ -216,7 +235,7 @@ export const UniverseCanvas = () => {
 					const avX = p.x - size - 10;
 					const avY = p.y - size / 1.5;
 
-					
+					// 1. Dibujar círculo de fondo siempre (por si la imagen es transparente o carga)
 					ctx.beginPath();
 					ctx.arc(avX + size / 2, avY + size / 2, size / 2, 0, Math.PI * 2);
 					ctx.fillStyle = `rgba(30, 30, 30, ${finalAlpha})`; // Gris oscuro
