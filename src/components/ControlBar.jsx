@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { Search, X } from "lucide-react"; // Eliminamos 'Plus' de los imports
+import { Search, X } from "lucide-react";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "../firebase";
+import { db, auth } from "../firebase"; // Importante: importar auth
 import { useStore } from "@nanostores/react";
 import { searchQuery } from "../store";
 
@@ -16,12 +16,23 @@ export default function ControlBar() {
 	const send = async (e) => {
 		e.preventDefault();
 		if (!msg.trim() || isSending) return;
+
+		const user = auth.currentUser;
+		if (!user) {
+			alert("Debes conectarte (botón arriba derecha) para transmitir.");
+			return;
+		}
+
 		setIsSending(true);
 		try {
 			await addDoc(collection(db, "thoughts"), {
 				message: msg,
 				category: cat || "general",
 				timestamp: serverTimestamp(),
+				// AQUÍ SE GUARDAN LOS DATOS DEL PERFIL
+				uid: user.uid,
+				photoURL: user.photoURL,
+				displayName: user.displayName,
 			});
 			setMsg("");
 			setCat("");
@@ -35,11 +46,9 @@ export default function ControlBar() {
 
 	return (
 		<>
-			{/* 1. FOOTER INTEGRADO */}
+			{/* FOOTER */}
 			<footer className="fixed bottom-0 left-0 right-0 z-50 w-full px-4 py-8 pointer-events-none flex justify-center">
-				{/* Cápsula Flotante Unificada */}
 				<div className="pointer-events-auto flex items-center gap-2 bg-black/80 backdrop-blur-xl border border-white/10 rounded-full pl-5 pr-2 py-2 shadow-2xl transition-all hover:border-white/20 w-full max-w-lg group">
-					{/* Buscador */}
 					<div className="flex-1 flex items-center gap-3">
 						<Search className="h-4 w-4 text-white/40 group-hover:text-white/60 transition-colors" />
 						<input
@@ -50,25 +59,22 @@ export default function ControlBar() {
 							placeholder="Buscar frecuencia..."
 						/>
 					</div>
-
-					{/* Botón Transmitir Integrado (Texto en lugar de Icono +) */}
 					<button
 						onClick={() => setOpen(true)}
-						className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white text-[10px] font-mono uppercase tracking-widest px-4 py-2 rounded-full border border-white/5 transition-all hover:scale-105 active:scale-95"
+						className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white text-[10px] font-mono uppercase tracking-widest px-4 py-2 rounded-full border border-white/5 transition-all hover:scale-105 active:scale-95 cursor-pointer"
 					>
 						Transmitir
 					</button>
 				</div>
 			</footer>
 
-			{/* 2. MODAL DE ENVÍO */}
+			{/* MODAL */}
 			{open && (
-				<div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-60] flex items-center justify-center p-6">
+				<div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-60 flex items-center justify-center p-6">
 					<div className="w-full max-w-lg relative animate-in fade-in zoom-in duration-300">
-						{/* Botón cerrar */}
 						<button
 							onClick={() => setOpen(false)}
-							className="absolute -top-12 right-0 text-zinc-500 hover:text-white transition-colors flex items-center gap-2 text-xs font-mono uppercase tracking-widest"
+							className="absolute -top-12 right-0 text-zinc-500 hover:text-white transition-colors flex items-center gap-2 text-xs font-mono uppercase tracking-widest cursor-pointer"
 						>
 							[ Cerrar ] <X size={20} />
 						</button>
@@ -89,7 +95,6 @@ export default function ControlBar() {
 								/>
 								<textarea
 									value={msg}
-									async
 									onChange={(e) => setMsg(e.target.value)}
 									className="bg-transparent text-white text-lg font-light text-center resize-none placeholder-white/20 focus:outline-none h-32 leading-relaxed"
 									placeholder="Escribe tu mensaje al vacío..."
@@ -98,7 +103,7 @@ export default function ControlBar() {
 								/>
 								<button
 									disabled={isSending}
-									className="w-full bg-white/5 hover:bg-emerald-900/30 border border-white/10 hover:border-emerald-500/30 text-white/70 hover:text-emerald-400 py-4 rounded-lg text-xs font-mono tracking-[0.2em] uppercase transition-all disabled:opacity-50 mt-2 group"
+									className="w-full bg-white/5 hover:bg-emerald-900/30 border border-white/10 hover:border-emerald-500/30 text-white/70 hover:text-emerald-400 py-4 rounded-lg text-xs font-mono tracking-[0.2em] uppercase transition-all disabled:opacity-50 mt-2 group cursor-pointer"
 								>
 									{isSending ? (
 										<span className="animate-pulse">Enviando...</span>
