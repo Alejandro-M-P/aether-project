@@ -11,7 +11,7 @@ import {
 } from "firebase/firestore";
 
 import { auth, db } from "../../firebase.js";
-import { useStore } from "@nanostores/react"; // [CORRECCIÓN] Importado para reactividad
+import { useStore } from "@nanostores/react";
 import { searchQuery } from "../../store.js";
 import { X, MapPin } from "lucide-react";
 
@@ -210,7 +210,7 @@ export const UniverseCanvas = () => {
 			setParticlesLoadedVersion((v) => v + 1);
 
 			// Si el texto de búsqueda está activo, no considerar el zoom de cercanía
-			const filterText = $searchQuery.toLowerCase().trim(); // [CORRECCIÓN] Usar $searchQuery reactivo
+			const filterText = $searchQuery.toLowerCase().trim();
 			setNearbyThoughtExists(nearbyFound && !filterText);
 		});
 		return () => unsubscribe();
@@ -219,7 +219,7 @@ export const UniverseCanvas = () => {
 
 	// Preparar los mensajes para el mapa (filtrados por búsqueda)
 	const filteredMessages = useMemo(() => {
-		const filterText = $searchQuery.toLowerCase().trim(); // [CORRECCIÓN] Usar $searchQuery reactivo
+		const filterText = $searchQuery.toLowerCase().trim();
 		// Ya están filtrados por expiración en el onSnapshot, solo queda el filtro de búsqueda
 		return particlesRef.current.filter((p) => {
 			if (!filterText) return true;

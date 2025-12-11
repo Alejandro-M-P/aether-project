@@ -83,41 +83,14 @@ export const MapComponent = ({
 							? p.cityName
 							: p.countryName || "Ubicación Desconocida";
 
-					// Preparar datos para el marcador HTML
-					// Usa la foto de Google o el /favicon.svg vacío.
-					const photoUrl = p.photoURL || "/favicon.svg";
-					const baseClass = p.isNearby
-						? "border-emerald-600"
-						: "border-sky-500";
-
-					// Limitar mensaje a 5 palabras para el overlay
-					const messageSnippet = (
-						p.text.split(" ").slice(0, 5).join(" ") + "..."
-					).replace(/"/g, "&quot;");
-					const locationText = displayLocation;
-
-					// 1. Crear el HTML del contenido del marcador usando un string (L.divIcon)
-					const markerHtml = `
-						<div class="thought-marker-container">
-							<div class="relative">
-								<img src="${photoUrl}" alt="${p.displayName}" class="w-8 h-8 rounded-full object-cover border-2 ${baseClass}" />
-								</div>
-
-							<div class="thought-message-overlay">
-								<div class="message-bubble bg-zinc-900 border ${baseClass}/50 p-2 rounded-lg shadow-xl">
-									<p class="text-white text-xs font-mono">"${messageSnippet}"</p>
-									<span class="text-[9px] text-zinc-400 mt-1 block">${locationText}</span>
-								</div>
-							</div>
-						</div>
-					`;
-
-					// Crear L.divIcon
-					const markerIcon = L.divIcon({
-						html: markerHtml,
-						iconSize: [40, 40], // Tamaño del contenedor (ajustado para la imagen de 32px + padding)
-						iconAnchor: [20, 20], // Ancla en el CENTRO de la imagen (20, 20)
-						className: "transparent-marker-icon", // Clase para eliminar el fondo por defecto de Leaflet
+					// Icono personalizado
+					const markerIcon = new L.Icon({
+						iconUrl: p.isNearby ? "/map-pin-green.svg" : "/map-pin-blue.svg",
+						iconSize: [30, 30],
+						iconAnchor: [15, 30],
+						className: `pulse-marker ${
+							p.isNearby ? "pulse-green" : "pulse-blue"
+						}`,
 					});
 
 					return (
@@ -125,14 +98,70 @@ export const MapComponent = ({
 							key={p.id}
 							position={[lat, lon]}
 							icon={markerIcon}
-							// El Popup fue eliminado para priorizar el hover
-						></Marker>
+							// No hay eventHandlers para que el clic simple abra el Popup.
+						>
+							<Popup offset={L.point(0, -20)}>
+								{/* Contenido del Pop-up con el tamaño ajustado */}
+								<div className="text-black text-sm font-mono max-w-sm w-48 p-1">
+									<div className="flex items-center gap-3 border-b pb-2 mb-2 border-zinc-200">
+										<img
+											src={p.photoURL || "/favicon.svg"}
+											alt={p.displayName}
+											className="w-10 h-10 rounded-full border border-zinc-400 object-cover"
+										/>
+										<div className="flex flex-col">
+											<p className="text-xs font-bold text-zinc-800">
+												{p.displayName?.split(" ")[0] || "Anónimo"}
+											</p>
+											<p className="text-[10px] text-zinc-500 uppercase tracking-widest">
+												{p.category}
+											</p>
+										</div>
+									</div>
+
+									{/* Caja de Texto (Mensaje) */}
+									<div className="bg-zinc-100 p-3 rounded text-zinc-700 border border-zinc-300/50">
+										<p className="italic text-sm">"{p.text}"</p>
+									</div>
+
+									{/* Ubicación (Mostrar Ciudad o País) */}
+									{p.countryName && (
+										<div className="text-[10px] text-sky-600 mt-2 flex justify-end items-center gap-1">
+											<MapPin size={10} /> {displayLocation}
+										</div>
+									)}
+
+									{/* Botón para abrir el Modal de Perfil */}
+									<button
+										onClick={() => openProfile(p)}
+										className="text-[10px] text-center text-emerald-600 mt-3 border-t pt-1 border-zinc-200 w-full hover:text-emerald-800 font-bold uppercase tracking-widest"
+									>
+										Ver Perfil Completo
+									</button>
+								</div>
+							</Popup>
+						</Marker>
 					);
 				}
 				return null;
 			})}
 
-			{/* Marcador de ubicación del visor ELIMINADO */}
+			{/* Marcador de ubicación del visor */}
+			{viewerLocation && (
+				<Marker
+					position={[viewerLocation.lat, viewerLocation.lon]}
+					icon={
+						new L.Icon({
+							iconUrl: "/target-user.svg",
+							iconSize: [30, 30],
+							iconAnchor: [15, 15],
+							className: "user-marker",
+						})
+					}
+				>
+					<Popup>Estás aquí (Visor)</Popup>
+				</Marker>
+			)}
 		</MapContainer>
 	);
 };
