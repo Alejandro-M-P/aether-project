@@ -128,12 +128,7 @@ export const MapComponent = ({
 					});
 
 					return (
-						<Marker
-							key={p.id}
-							position={[lat, lon]}
-							icon={markerIcon}
-							// El Popup funcionará si el CSS de los pointer-events está bien
-						>
+						<Marker key={p.id} position={[lat, lon]} icon={markerIcon}>
 							<Popup>
 								{/* Contenido del Pop-up con el tamaño ajustado */}
 								<div className="text-black text-sm font-mono max-w-sm w-48 p-1">

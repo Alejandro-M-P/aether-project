@@ -29,7 +29,7 @@
 	background-color: transparent !important;
 	border: none !important;
 	box-shadow: none !important;
-	/* CRÍTICO para el clic: Debe permitir que el puntero interactúe con el contenido. */
+	/* Permite que los eventos pasen al elemento hijo (thought-marker-container) */
 	pointer-events: auto;
 }
 
@@ -38,20 +38,20 @@
 	position: relative;
 	width: 40px;
 	height: 40px;
-	/* Debe ser "auto" para que capture el evento hover */
+	/* Establecemos 'auto' aquí para que capture el hover */
 	pointer-events: auto;
 }
 
-/* 3. La imagen de perfil */
+/* 3. La imagen de perfil (El objetivo del Clic) */
 .thought-marker-container img {
 	z-index: 2;
 	position: relative;
 	box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
-	border: 2px solid; /* El color del borde lo pone Tailwind */
-	/* Debe ser "auto" para que el clic se propague al Leaflet Marker */
+	border: 2px solid;
+	/* CRÍTICO: Aseguramos que solo la imagen sea el objetivo de la interacción para que el Popup funcione. */
 	pointer-events: auto;
 	cursor: pointer;
-	transition: transform 0.2s;
+	transition: box-shadow 0.2s;
 }
 
 /* 4. Mensaje Flotante (Overlay) */
@@ -59,13 +59,13 @@
 	position: absolute;
 	top: -65px;
 	left: 50%;
-	/* Posición inicial fuera de vista con transformación */
+	/* Posición inicial para la animación de entrada */
 	transform: translateX(-50%) translateY(5px);
 	z-index: 10;
-	/* CRÍTICO: Debe ser NONE para que no bloquee el clic en la imagen */
+	/* CRÍTICO: Debe ser NONE para que el clic pase a través del mensaje y llegue a la imagen */
 	pointer-events: none;
 	opacity: 0;
-	/* Transición para el efecto de entrada/salida (la animación simple) */
+	/* Animación de entrada/salida */
 	transition: opacity 0.3s ease-out, transform 0.3s ease-out;
 	text-align: center;
 }
@@ -81,7 +81,6 @@
 	min-width: 150px;
 	display: inline-block;
 	text-align: left;
-	/* Eliminamos la animación de "float-message" para evitar el movimiento constante */
 }
 
 /* ------------------------------------------------ */
@@ -124,6 +123,7 @@
 	}
 }
 
+/* Aplicar la animación de pulso a la clase de anillo */
 .pulse-green-ring {
 	animation: pulse-green-ring 2s infinite;
 }
