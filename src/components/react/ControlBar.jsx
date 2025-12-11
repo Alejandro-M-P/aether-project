@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from "react";
-import { Search, X, Radio, Send, Minimize2 } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import * as Icons from "lucide-react";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 import { db, auth } from "../../firebase.js";
@@ -60,6 +60,25 @@ const reverseGeocode = async (lat, lon) => {
 		return { cityName: null, countryName: null };
 	}
 };
+
+// Renderizado cliente-only para iconos (evita mismatches SSR y define Search)
+const ClientIcon = ({ name, ...props }) => {
+	const [isClient, setIsClient] = React.useState(false);
+	React.useEffect(() => setIsClient(true), []);
+	if (!isClient) return <span aria-hidden="true" style={{ display: "inline-block", width: props.width || 16, height: props.height || 16 }} />;
+
+	const IconComp = Icons[name] || Icons.Activity || (() => null);
+	return <IconComp {...props} />;
+};
+
+// Garantiza que <Search /> exista (usa el wrapper cliente)
+const Search = (props) => <ClientIcon name="Search" {...props} />;
+
+// Agregar aliases para todos los iconos usados en el archivo (evita "X is not defined", "Send is not defined", etc.)
+const X = (props) => <ClientIcon name="X" {...props} />;
+const Radio = (props) => <ClientIcon name="Radio" {...props} />;
+const Send = (props) => <ClientIcon name="Send" {...props} />;
+const Activity = (props) => <ClientIcon name="Activity" {...props} />;
 
 export default function ControlBar() {
 	const $searchQuery = useStore(searchQuery);

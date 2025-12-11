@@ -18,7 +18,7 @@ import { X, MapPin } from "lucide-react";
 // Carga dinámica del mapa (ahora es el Globo 3D)
 const MapComponent = React.lazy(() =>
 	import("./MapComponent.jsx")
-		.then((mod) => ({ default: mod.MapComponent }))
+		.then((mod) => ({ default: mod.UniverseCanvas })) 
 		.catch((err) => {
 			console.error("Fallo al cargar MapComponent:", err);
 			return {
@@ -85,16 +85,26 @@ export const UniverseCanvas = () => {
 			signInAnonymously(auth).catch(() => {});
 		}
 
-		if (typeof window !== "undefined" && "geolocation" in navigator) {
-			navigator.geolocation.getCurrentPosition(
-				(position) => {
-					setViewerLocation({
-						lat: position.coords.latitude,
-						lon: position.coords.longitude,
-					});
-				},
-				(error) => console.warn("Geo error:", error)
-			);
+		// No solicitar geolocalización automáticamente (solo en respuesta a gesto del usuario).
+		// Proveer helper que otros componentes pueden invocar tras un click/gesto.
+		if (typeof window !== "undefined") {
+			window.requestAetherLocation = async () => {
+				if (!("geolocation" in navigator)) return null;
+				return new Promise((resolve) => {
+					navigator.geolocation.getCurrentPosition(
+						(position) => {
+							const loc = { lat: position.coords.latitude, lon: position.coords.longitude };
+							setViewerLocation(loc);
+							resolve(loc);
+						},
+						(err) => {
+							console.warn("Geo error (user-requested):", err);
+							resolve(null);
+						},
+						{ enableHighAccuracy: false, timeout: 7000, maximumAge: 0 }
+					);
+				});
+			};
 		}
 
 		// FIREBASE LISTENER
@@ -137,7 +147,11 @@ export const UniverseCanvas = () => {
 			particlesRef.current = valid.filter((p) => Date.now() - p.createdAt <= MESSAGE_LIFETIME);
 			setParticlesLoadedVersion((v) => v + 1);
 		});
-		return () => unsubscribe();
+		
+		return () => {
+			try { unsubscribe(); } catch (e) {}
+			try { if (typeof window !== "undefined") delete window.requestAetherLocation; } catch (e) {}
+		};
 	}, [viewerLocation]);
 
 	const filteredMessages = useMemo(() => {
@@ -153,21 +167,18 @@ export const UniverseCanvas = () => {
 
 	return (
 		<>
-			{/* FONDO NEGRO Y MAPA 3D */}
-			<div className="fixed inset-0 w-full h-full bg-black -z-10">
-				<React.Suspense
-					fallback={
-						<div className="flex items-center justify-center w-full h-full bg-black text-zinc-600 font-mono text-xs uppercase tracking-widest animate-pulse">
-							Inicializando Secuencia Aether...
-						</div>
-					}
-				>
-					<MapComponent
-						messages={filteredMessages}
-						openProfile={openProfileMemo}
-					/>
-				</React.Suspense>
-			</div>
+			<React.Suspense
+				fallback={
+					<div className="fixed inset-0 flex items-center justify-center w-full h-full bg-black text-zinc-600 font-mono text-xs uppercase tracking-widest animate-pulse -z-10">
+						Inicializando Secuencia Aether...
+					</div>
+				}
+			>
+				<MapComponent
+					messages={filteredMessages}
+					openProfile={openProfileMemo}
+				/>
+			</React.Suspense>
 
 			{selectedProfile && (
 				// MODAL PERFIL (Minimalista)
