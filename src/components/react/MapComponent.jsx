@@ -83,7 +83,7 @@ export const MapComponent = ({
 							? p.cityName
 							: p.countryName || "Ubicación Desconocida";
 
-					// Icono personalizado
+					// [ICONO ORIGINAL RESTAURADO]
 					const markerIcon = new L.Icon({
 						iconUrl: p.isNearby ? "/map-pin-green.svg" : "/map-pin-blue.svg",
 						iconSize: [30, 30],
@@ -100,17 +100,18 @@ export const MapComponent = ({
 							icon={markerIcon}
 							// No hay eventHandlers para que el clic simple abra el Popup.
 						>
+							{/* [POPUP MINIMALISTA NEGRO] con foto de perfil en la parte superior */}
 							<Popup offset={L.point(0, -20)}>
-								{/* Contenido del Pop-up con el tamaño ajustado */}
-								<div className="text-black text-sm font-mono max-w-sm w-48 p-1">
-									<div className="flex items-center gap-3 border-b pb-2 mb-2 border-zinc-200">
+								<div className="bg-black/90 text-white p-3 rounded-lg border border-white/10 shadow-lg w-48 font-mono text-xs backdrop-blur-sm">
+									{/* Bloque de Perfil (Foto de perfil, nombre y categoría) */}
+									<div className="flex items-center gap-3 border-b pb-2 mb-2 border-white/10">
 										<img
 											src={p.photoURL || "/favicon.svg"}
 											alt={p.displayName}
-											className="w-10 h-10 rounded-full border border-zinc-400 object-cover"
+											className="w-8 h-8 rounded-full border border-white/20 object-cover"
 										/>
 										<div className="flex flex-col">
-											<p className="text-xs font-bold text-zinc-800">
+											<p className="text-xs font-bold text-white">
 												{p.displayName?.split(" ")[0] || "Anónimo"}
 											</p>
 											<p className="text-[10px] text-zinc-500 uppercase tracking-widest">
@@ -119,24 +120,24 @@ export const MapComponent = ({
 										</div>
 									</div>
 
-									{/* Caja de Texto (Mensaje) */}
-									<div className="bg-zinc-100 p-3 rounded text-zinc-700 border border-zinc-300/50">
-										<p className="italic text-sm">"{p.text}"</p>
+									{/* Mensaje */}
+									<div className="text-zinc-300">
+										<p className="italic text-sm leading-snug">"{p.text}"</p>
 									</div>
 
-									{/* Ubicación (Mostrar Ciudad o País) */}
+									{/* Ubicación (Minimalista, si existe) */}
 									{p.countryName && (
-										<div className="text-[10px] text-sky-600 mt-2 flex justify-end items-center gap-1">
+										<div className="text-[10px] text-sky-400 mt-2 flex justify-end items-center gap-1">
 											<MapPin size={10} /> {displayLocation}
 										</div>
 									)}
 
-									{/* Botón para abrir el Modal de Perfil */}
+									{/* Botón para Perfil */}
 									<button
 										onClick={() => openProfile(p)}
-										className="text-[10px] text-center text-emerald-600 mt-3 border-t pt-1 border-zinc-200 w-full hover:text-emerald-800 font-bold uppercase tracking-widest"
+										className="text-[10px] text-center text-emerald-400 mt-3 border-t pt-1 border-white/10 w-full hover:text-emerald-300 font-bold uppercase tracking-widest bg-transparent"
 									>
-										Ver Perfil Completo
+										Ver Perfil
 									</button>
 								</div>
 							</Popup>

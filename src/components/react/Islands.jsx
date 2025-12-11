@@ -62,10 +62,10 @@ export const UniverseCanvas = () => {
 	const [nearbyThoughtExists, setNearbyThoughtExists] = useState(false);
 	const [currentMapZoom, setCurrentMapZoom] = useState(2); // Estado para el zoom del mapa
 
-	// [CORRECCIÓN] Estado para forzar re-renderizado de partículas (Soluciona Bug 1)
+	// Estado para forzar re-renderizado de partículas
 	const [particlesLoadedVersion, setParticlesLoadedVersion] = useState(0);
 
-	// [CORRECCIÓN] Suscripción reactiva al store de búsqueda (Soluciona Bug 2)
+	// Suscripción reactiva al store de búsqueda
 	const $searchQuery = useStore(searchQuery);
 
 	// Mantenemos openProfile como una función que se pasa al MapComponent
@@ -206,7 +206,7 @@ export const UniverseCanvas = () => {
 				(p) => Date.now() - p.createdAt <= MESSAGE_LIFETIME
 			);
 
-			// [CORRECCIÓN] Forzar el re-renderizado al actualizar la lista de partículas
+			// Forzar el re-renderizado al actualizar la lista de partículas
 			setParticlesLoadedVersion((v) => v + 1);
 
 			// Si el texto de búsqueda está activo, no considerar el zoom de cercanía
@@ -214,7 +214,7 @@ export const UniverseCanvas = () => {
 			setNearbyThoughtExists(nearbyFound && !filterText);
 		});
 		return () => unsubscribe();
-		// [CORRECCIÓN] Añadir $searchQuery a las dependencias
+		// Añadir $searchQuery a las dependencias
 	}, [viewerLocation, openProfileMemo, $searchQuery]);
 
 	// Preparar los mensajes para el mapa (filtrados por búsqueda)
@@ -228,7 +228,7 @@ export const UniverseCanvas = () => {
 				p.category.toLowerCase().includes(filterText)
 			);
 		});
-		// [CORRECCIÓN] Añadir particlesLoadedVersion y $searchQuery como dependencias
+		// Añadir particlesLoadedVersion y $searchQuery como dependencias
 	}, [particlesLoadedVersion, $searchQuery]);
 
 	return (
