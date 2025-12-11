@@ -17,11 +17,10 @@ export const MapComponent = ({ messages, openProfile }) => {
 	const [GlobePackage, setGlobePackage] = useState(null);
 	const [ThreePackage, setThreePackage] = useState(null);
 	
-	const [selectedThoughtId, setSelectedThoughtId] = useState(null);
 	const [dimensions, setDimensions] = useState({ width: 800, height: 800 });
 	const [globeReady, setGlobeReady] = useState(false);
 
-	// 1. CARGA SEGURA DE LIBRERÍAS (Evita "window is not defined")
+	// 1. CARGA SEGURA DE LIBRERÍAS
 	useEffect(() => {
 		if (typeof window !== "undefined") {
 			Promise.all([
@@ -61,7 +60,7 @@ export const MapComponent = ({ messages, openProfile }) => {
 
 			// Controles
 			const controls = globe.controls();
-			controls.autoRotate = false; // Estático para facilitar el click
+			controls.autoRotate = false; // Estático para facilitar la interacción
 			controls.enableZoom = true;
 			controls.zoomSpeed = 1.2;
 			controls.dampingFactor = 0.05;
@@ -108,9 +107,11 @@ export const MapComponent = ({ messages, openProfile }) => {
 
 	// 4. DATOS
 	const mapData = useMemo(() => {
-		return messages.filter(m => m.location && m.location.lat && m.location.lon)
-			.map(m => ({ ...m, isSelected: m.id === selectedThoughtId }));
-	}, [messages, selectedThoughtId]);
+		// Invertimos el array para que los mensajes nuevos se pinten al final del DOM (encima)
+		return messages
+			.filter(m => m.location && m.location.lat && m.location.lon)
+			.reverse(); 
+	}, [messages]);
 
 	// Placeholder mientras carga para evitar errores
 	if (!GlobePackage) return <div className="w-full h-full bg-black" />;
@@ -132,9 +133,6 @@ export const MapComponent = ({ messages, openProfile }) => {
 				atmosphereColor={ATMOSPHERE_COLOR}
 				atmosphereAltitude={0.18}
 				
-				// Cerrar popup al hacer clic fuera
-				onGlobeClick={() => setSelectedThoughtId(null)}
-				
 				htmlElementsData={mapData}
 				htmlLat={d => d.location.lat}
 				htmlLng={d => d.location.lon}
@@ -142,34 +140,32 @@ export const MapComponent = ({ messages, openProfile }) => {
 				htmlTransitionDuration={300}
 				htmlElement={d => {
 					const el = document.createElement('div');
-					// HABILITAR PUNTERO
-					el.style.pointerEvents = "auto";
-					el.style.cursor = "pointer";
-
-					// --- LA CLAVE PARA QUE EL CLICK FUNCIONE ---
-					// Esto evita que el globo capture el evento como "arrastre"
-					const stopDrag = (e) => {
-						e.stopPropagation();
-						// Capturar el puntero asegura que el navegador sepa que estamos interactuando con este elemento
-						if (e.type === 'pointerdown') {
-							e.target.setPointerCapture?.(e.pointerId);
-						}
-					};
 					
-					// Asignamos los listeners directamente
-					el.onpointerdown = stopDrag;
-					el.onmousedown = stopDrag;
-					el.ontouchstart = stopDrag;
+					// --- ESTILOS CRÍTICOS PARA INTERACCIÓN ---
+					el.style.pointerEvents = "auto"; // Habilita interacción
+					el.style.cursor = "help"; 
+					el.style.position = "relative";
+					el.style.zIndex = "10"; // Nivel base
 
-					// --- HTML DEL MARCADOR ---
-					let htmlContent = `
-						<div class="relative flex flex-col items-center transform -translate-x-1/2 -translate-y-full group transition-all duration-300 ${d.isSelected ? 'z-50' : 'z-10 hover:z-40'}">
-					`;
+					// --- MANEJO DE Z-INDEX AL PASAR EL RATÓN ---
+					// Esto evita parpadeos al no usar React para el estado visual
+					el.onmouseenter = () => { el.style.zIndex = "10000"; };
+					el.onmouseleave = () => { el.style.zIndex = "10"; };
 
-					// A. EL POPUP (Visible solo si está seleccionado)
-					if (d.isSelected) {
-						htmlContent += `
-							<div class="absolute bottom-[130%] mb-1 w-80 bg-zinc-950/95 border border-cyan-500 rounded-xl overflow-hidden shadow-[0_0_60px_rgba(6,182,212,0.6)] backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 duration-300 origin-bottom ring-1 ring-white/20 cursor-default" onpointerdown="event.stopPropagation()">
+					// --- BLOQUEO DE ARRASTRE DEL MAPA ---
+					// Si tocas el marcador, el mapa NO se debe mover.
+					const stopPropagation = (e) => { e.stopPropagation(); };
+					el.addEventListener('pointerdown', stopPropagation);
+					el.addEventListener('mousedown', stopPropagation);
+					el.addEventListener('touchstart', stopPropagation, { passive: true });
+
+					// --- ESTRUCTURA HTML (CSS PURO PARA HOVER) ---
+					// Usamos 'group' y 'group-hover' de Tailwind.
+					// El popup está oculto (opacity-0) y aparece al hacer hover sobre el padre (opacity-100).
+					el.innerHTML = `
+						<div class="flex flex-col items-center transform -translate-x-1/2 -translate-y-full group w-max">
+							
+							<div class="absolute bottom-[120%] mb-2 w-80 bg-zinc-950/95 border border-cyan-500 rounded-xl overflow-hidden shadow-[0_0_60px_rgba(6,182,212,0.6)] backdrop-blur-xl origin-bottom transition-all duration-300 opacity-0 translate-y-4 scale-95 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 group-hover:pointer-events-auto ring-1 ring-white/20 z-50">
 								<div class="h-1 w-full bg-gradient-to-r from-cyan-500 via-white to-cyan-500 opacity-80"></div>
 								<div class="p-5 flex flex-col gap-4">
 									<div class="flex items-center gap-4 border-b border-white/10 pb-3">
@@ -186,7 +182,7 @@ export const MapComponent = ({ messages, openProfile }) => {
 									</div>
 									<div class="relative">
 										<div class="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-cyan-500 to-transparent"></div>
-										<p class="text-sm font-light text-zinc-200 italic leading-relaxed pl-3">
+										<p class="text-sm font-light text-zinc-200 italic leading-relaxed pl-3 text-wrap break-words">
 											"${d.text}"
 										</p>
 									</div>
@@ -195,16 +191,8 @@ export const MapComponent = ({ messages, openProfile }) => {
 									</button>
 								</div>
 							</div>
-						`;
-					}
 
-					// B. EL ICONO VISUAL (Burbuja de Mensaje - Sin Texto)
-					const iconBg = d.isSelected ? "bg-white text-black border-cyan-500 scale-110" : "bg-black/60 text-cyan-400 border-cyan-500/50 group-hover:bg-black/90 group-hover:text-white group-hover:border-cyan-400 group-hover:scale-110";
-					const iconShadow = d.isSelected ? "shadow-[0_0_30px_rgba(255,255,255,0.8)]" : "shadow-[0_0_15px_rgba(6,182,212,0.3)]";
-					
-					htmlContent += `
-							<div class="h-6 w-[1px] bg-gradient-to-t from-transparent via-cyan-500 to-cyan-400 opacity-80"></div>
-							<div class="w-9 h-9 rounded-full border ${iconBg} ${iconShadow} backdrop-blur-md flex items-center justify-center transition-all duration-300 transform">
+							<div class="w-9 h-9 rounded-full border bg-black/60 text-cyan-400 border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.3)] backdrop-blur-md flex items-center justify-center transition-all duration-300 transform group-hover:scale-125 group-hover:bg-black/90 group-hover:text-white group-hover:border-cyan-400 group-hover:shadow-[0_0_30px_rgba(255,255,255,0.5)]">
 								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
 									<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
 									<path d="M8 10h8"/>
@@ -214,26 +202,14 @@ export const MapComponent = ({ messages, openProfile }) => {
 						</div>
 					`;
 
-					el.innerHTML = htmlContent;
-
-					// --- LOGICA DE CLIC ---
-					el.onclick = (e) => {
-						e.stopPropagation();
-						
-						// Comprobar si clicó en el botón de perfil
+					// --- LOGICA DE CLIC (MANUAL PARA EL BOTÓN DE PERFIL) ---
+					el.addEventListener('click', (e) => {
+						// Solo si el usuario hace clic en el botón de perfil
 						if (e.target.closest('.js-profile-btn')) {
-							openProfile(d);
-							return;
+							e.stopPropagation(); // Evitar propagación extra
+							openProfile(d); // Ejecutar función de React
 						}
-
-						// Si no, seleccionamos el mensaje y hacemos zoom
-						setSelectedThoughtId(d.id);
-						globeEl.current.pointOfView({
-							lat: d.location.lat,
-							lng: d.location.lon,
-							altitude: 0.22 
-						}, 1000);
-					};
+					});
 
 					return el;
 				}}
