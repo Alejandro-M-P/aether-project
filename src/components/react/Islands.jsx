@@ -142,22 +142,16 @@ export const UniverseCanvas = () => {
 
 				// Solo si es un mensaje diferente al que ya hemos notificado
 				if (newestMessageId !== prevNewestMessageId.current) {
-					// Solo anunciamos si el mensaje es muy reciente (ej. en los últimos 10 segundos)
-					const timestampMs = newestMessageData.timestamp
-						? newestMessageData.timestamp.toMillis()
-						: Date.now();
+					// Activamos el toast sin la limitación de tiempo (instantáneo)
+					setNewThoughtToast({
+						text: newestMessageData.message,
+						displayName: newestMessageData.displayName,
+					});
 
-					if (Date.now() - timestampMs < 10000) {
-						setNewThoughtToast({
-							text: newestMessageData.message,
-							displayName: newestMessageData.displayName,
-						});
-
-						// Limpiar el toast después de 5 segundos
-						setTimeout(() => {
-							setNewThoughtToast(null);
-						}, 5000);
-					}
+					// Limpiar el toast después de 5 segundos
+					setTimeout(() => {
+						setNewThoughtToast(null);
+					}, 5000);
 
 					prevNewestMessageId.current = newestMessageId;
 				}
@@ -263,7 +257,7 @@ export const UniverseCanvas = () => {
 
 	return (
 		<>
-			{/* NUEVO TOAST DE NOTIFICACIÓN EN TIEMPO REAL */}
+			{/* TOAST DE NOTIFICACIÓN EN TIEMPO REAL */}
 			{newThoughtToast && (
 				<div className="fixed top-20 left-1/2 -translate-x-1/2 z-70 p-4 bg-zinc-800/90 backdrop-blur-md rounded-xl shadow-2xl border border-emerald-500/50 animate-in fade-in slide-in-from-top-10 duration-500">
 					<p className="text-sm font-mono text-white/90">
