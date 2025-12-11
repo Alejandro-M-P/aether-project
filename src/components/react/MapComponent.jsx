@@ -1,4 +1,3 @@
-// Archivo: src/components/react/MapComponent.jsx
 import React, { useEffect, useRef, useMemo } from "react";
 import {
 	MapContainer,
@@ -27,6 +26,13 @@ const DEFAULT_CENTER = [20, 0];
 const DEFAULT_ZOOM = 2;
 const ZOOM_LEVEL_CITY_THRESHOLD = 4; // Umbral para cambiar de País a Ciudad/Pueblo
 
+// NUEVO: Definir los límites máximos del mundo (latitud: -90 a 90, longitud: -180 a 180)
+const WORLD_MAX_BOUNDS = [
+	[-90, -180],
+	[90, 180],
+];
+const MAX_BOUNDS_VISCOSITY = 1.0; // Hace que el límite sea estricto
+
 // Componente para rastrear el zoom (para filtrar la ubicación)
 const MapZoomTracker = ({ updateZoom }) => {
 	const map = useMap();
@@ -53,7 +59,7 @@ export const MapComponent = ({
 	openProfile,
 	updateZoom,
 	currentMapZoom,
-	draftMessage, // <-- NUEVO PROP
+	draftMessage,
 }) => {
 	// NUEVO COMPONENTE: Marcador de Borrador (Burbuja de Texto)
 	const DraftMarker = () => {
@@ -67,7 +73,6 @@ export const MapComponent = ({
 				: draftMessage;
 
 		// Crear un icono div para la burbuja de texto
-		// Se usa `className` para aplicar los estilos de CSS definidos en global.css
 		const draftIcon = L.divIcon({
 			className: "draft-message-icon-wrapper",
 			html: `
@@ -76,8 +81,8 @@ export const MapComponent = ({
                     <div class="draft-message-tail"></div>
                 </div>
             `,
-			iconSize: [0, 0], // El tamaño es manejado por CSS
-			iconAnchor: [0, 0], // El anclaje se ajusta en CSS
+			iconSize: [200, 50], // FIX: Dar un tamaño de icono válido a Leaflet
+			iconAnchor: [100, 25],
 		});
 
 		// Renderizar el marcador en la ubicación del visor
@@ -97,11 +102,14 @@ export const MapComponent = ({
 			minZoom={DEFAULT_ZOOM}
 			style={{ height: "100%", width: "100%", zIndex: 0 }}
 			className="map-container"
+			maxBounds={WORLD_MAX_BOUNDS} // <-- ACT: Aplicar límites
+			maxBoundsViscosity={MAX_BOUNDS_VISCOSITY} // <-- ACT: Límite estricto
 		>
 			{/* Tiles Satelitales (Similar a Google Earth) */}
 			<TileLayer
 				attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
 				url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+				noWrap={true} // <-- ACT: Evitar repetición horizontal (mapa infinito)
 			/>
 
 			{/* Rastreador de Zoom */}
@@ -141,7 +149,7 @@ export const MapComponent = ({
 								<div className="text-black text-sm font-mono max-w-sm w-48 p-1">
 									<div className="flex items-center gap-3 border-b pb-2 mb-2 border-zinc-200">
 										<img
-											src={p.photoURL || "/favicon.svg"}
+											src={p.photoURL || "/target-user.svg"} // <-- Fallback correcto para la imagen (punto 1)
 											alt={p.displayName}
 											className="w-10 h-10 rounded-full border border-zinc-400 object-cover"
 										/>
