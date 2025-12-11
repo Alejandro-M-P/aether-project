@@ -1,6 +1,8 @@
-import React, { useEffect, useState, useRef } from "react";
-// 🚨 Mantenemos la ruta original
+import React, { useEffect, useState } from "react";
+
+// 🚨 CORRECCIÓN IMPORTANTE: Subir dos niveles (../../)
 import { auth } from "../../firebase.js";
+
 import {
 	GoogleAuthProvider,
 	signInWithPopup,
@@ -29,23 +31,8 @@ export default function UserWidget() {
 	useEffect(() => {
 		const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
 			setUser(currentUser);
-			if (currentUser) {
-				setNewDisplayName(currentUser.displayName || "");
-				setPreviewUrl(currentUser.photoURL || "");
-			}
 		});
-
-		const handleClickOutside = (event) => {
-			if (menuRef.current && !menuRef.current.contains(event.target)) {
-				setIsOpen(false);
-				setIsEditing(false);
-			}
-		};
-		document.addEventListener("mousedown", handleClickOutside);
-		return () => {
-			unsubscribe();
-			document.removeEventListener("mousedown", handleClickOutside);
-		};
+		return () => unsubscribe();
 	}, []);
 
 	const handleLogin = async () => {
@@ -112,17 +99,17 @@ export default function UserWidget() {
 	if (!user) {
 		return (
 			<button
-				onClick={handleLogin}
-				className="pointer-events-auto group relative flex items-center gap-3 px-5 py-2.5 rounded-full bg-zinc-950/50 border border-white/10 backdrop-blur-xl shadow-[0_0_15px_rgba(0,0,0,0.5)] hover:bg-zinc-900/80 hover:border-emerald-500/30 transition-all duration-300 cursor-pointer overflow-hidden"
+				onClick={handleLogout}
+				className="pointer-events-auto flex items-center gap-3 px-3 py-1.5 rounded-full bg-zinc-900/60 border border-white/10 hover:border-red-500/50 transition-all group backdrop-blur-md cursor-pointer"
+				title="Cerrar sesión"
 			>
-				<div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-				
-				<div className="relative flex h-2.5 w-2.5">
-					<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-					<span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_8px_#10b981]"></span>
-				</div>
-				<span className="text-xs font-mono text-zinc-300 font-bold uppercase tracking-widest group-hover:text-white transition-colors">
-					Conectar
+				<img
+					src={user.photoURL}
+					alt={user.displayName}
+					className="w-6 h-6 rounded-full border border-white/20"
+				/>
+				<span className="text-[10px] font-mono text-zinc-300 uppercase tracking-widest group-hover:text-red-400">
+					{user.displayName?.split(" ")[0]}
 				</span>
 			</button>
 		);

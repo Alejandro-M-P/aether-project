@@ -85,26 +85,20 @@ export const UniverseCanvas = () => {
 			signInAnonymously(auth).catch(() => {});
 		}
 
-		// No solicitar geolocalización automáticamente (solo en respuesta a gesto del usuario).
-		// Proveer helper que otros componentes pueden invocar tras un click/gesto.
-		if (typeof window !== "undefined") {
-			window.requestAetherLocation = async () => {
-				if (!("geolocation" in navigator)) return null;
-				return new Promise((resolve) => {
-					navigator.geolocation.getCurrentPosition(
-						(position) => {
-							const loc = { lat: position.coords.latitude, lon: position.coords.longitude };
-							setViewerLocation(loc);
-							resolve(loc);
-						},
-						(err) => {
-							console.warn("Geo error (user-requested):", err);
-							resolve(null);
-						},
-						{ enableHighAccuracy: false, timeout: 7000, maximumAge: 0 }
-					);
-				});
-			};
+		// OBTENER UBICACIÓN DEL VISUALIZADOR
+		if (typeof window !== "undefined" && "geolocation" in navigator) {
+			navigator.geolocation.getCurrentPosition(
+				(position) => {
+					setViewerLocation({
+						lat: position.coords.latitude,
+						lon: position.coords.longitude,
+					});
+				},
+				(error) => {
+					console.warn("Geolocalización del visor denegada o fallida.", error);
+					setViewerLocation(null);
+				}
+			);
 		}
 
 		// FIREBASE LISTENER
@@ -144,15 +138,17 @@ export const UniverseCanvas = () => {
 				}
 			});
 
-			particlesRef.current = valid.filter((p) => Date.now() - p.createdAt <= MESSAGE_LIFETIME);
-			setParticlesLoadedVersion((v) => v + 1);
+			// Filtrar mensajes expirados antes de guardarlos
+			particlesRef.current = valid.filter(
+				(p) => Date.now() - p.createdAt <= MESSAGE_LIFETIME
+			);
+
+			// Si el texto de búsqueda está activo, no considerar el zoom de cercanía
+			const filterText = searchQuery.get().toLowerCase().trim();
+			setNearbyThoughtExists(nearbyFound && !filterText);
 		});
-		
-		return () => {
-			try { unsubscribe(); } catch (e) {}
-			try { if (typeof window !== "undefined") delete window.requestAetherLocation; } catch (e) {}
-		};
-	}, [viewerLocation]);
+		return () => unsubscribe();
+	}, [viewerLocation, openProfileMemo]);
 
 	const filteredMessages = useMemo(() => {
 		const filterText = $searchQuery.toLowerCase().trim();
@@ -167,18 +163,26 @@ export const UniverseCanvas = () => {
 
 	return (
 		<>
-			<React.Suspense
-				fallback={
-					<div className="fixed inset-0 flex items-center justify-center w-full h-full bg-black text-zinc-600 font-mono text-xs uppercase tracking-widest animate-pulse -z-10">
-						Inicializando Secuencia Aether...
-					</div>
-				}
-			>
-				<MapComponent
-					messages={filteredMessages}
-					openProfile={openProfileMemo}
-				/>
-			</React.Suspense>
+			{/* Contenedor del Mapa (Se mostrará solo en el cliente) */}
+			<div className="w-full h-full -z-10 bg-black">
+				{/* Suspense muestra un fallback mientras el componente del mapa carga */}
+				<React.Suspense
+					fallback={
+						<div className="flex items-center justify-center w-full h-full text-zinc-500 font-mono">
+							Cargando Mapa...
+						</div>
+					}
+				>
+					<MapComponent
+						messages={filteredMessages}
+						viewerLocation={viewerLocation}
+						nearbyThoughtExists={nearbyThoughtExists}
+						openProfile={openProfileMemo}
+						updateZoom={updateZoom} // Pasar la función de actualización de zoom
+						currentMapZoom={currentMapZoom} // Pasar el zoom actual
+					/>
+				</React.Suspense>
+			</div>
 
 			{selectedProfile && (
 				// MODAL PERFIL (Minimalista)
