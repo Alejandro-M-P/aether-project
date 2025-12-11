@@ -8,6 +8,13 @@ export default defineConfig({
   integrations: [react()],
 
   vite: {
-    plugins: [tailwindcss()]
+    plugins: [tailwindcss()],
+    // FIX: Resuelve problemas de importación profunda de THREE.js 
+    // forzando el uso del módulo principal para evitar errores como "./webgpu"
+    resolve: {
+      alias: {
+        'three': 'three/build/three.module.js',
+      },
+    },
   }
 });
