@@ -24,6 +24,6 @@
     "react-leaflet": "^5.0.0",
     "tailwindcss": "^4.1.17",
     "react-globe.gl": "^2.37.0",
-    "three": "^0.165.0"           
+    "three": "0.152.0"
   }
 }
