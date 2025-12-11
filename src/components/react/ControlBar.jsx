@@ -1,17 +1,17 @@
-// Archivo: src/components/react/ControlBar.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Search, X } from "lucide-react";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 import { db, auth } from "../../firebase.js";
 import { useStore } from "@nanostores/react";
-import { searchQuery, draftMessage } from "../../store.js"; // <-- ACT: Importar draftMessage
+import { searchQuery, draftMessage, fetchTrigger } from "../../store.js"; // <-- ACT: Importar draftMessage y fetchTrigger
 
 // CONSTANTE para la privacidad: ~0.05 grados equivale a ~5.5 km cerca del ecuador
 const RANDOM_RADIUS_DEGREE = 0.05;
 
 // AÑADIDO: Offset Aleatorio (5-6km)
-const addRandomOffset = (location) => {
+export const addRandomOffset = (location) => {
+	// <-- ACT: EXPORTADO para usarlo en Islands.jsx
 	// 🚨 Aseguramos que la función modifique la copia
 	const newLocation = { ...location };
 
@@ -83,8 +83,8 @@ export default function ControlBar() {
 	const [cat, setCat] = useState("");
 	const [isSending, setIsSending] = useState(false);
 
-	// NUEVO: Sincronizar el estado de borrador con el store global
-	React.useEffect(() => {
+	// NUEVO: Sincronizar el estado de borrador con el store global para el pop-up
+	useEffect(() => {
 		if (open) {
 			draftMessage.set(msg);
 		} else {
@@ -144,6 +144,9 @@ export default function ControlBar() {
 			}
 
 			await addDoc(collection(db, "thoughts"), thoughtData);
+
+			// <-- FIX: FORZAR LECTURA INMEDIATA TRAS ESCRITURA (soluciona visibilidad)
+			fetchTrigger.set(fetchTrigger.get() + 1);
 
 			setMsg("");
 			setCat("");
@@ -206,7 +209,7 @@ export default function ControlBar() {
 								/>
 								<textarea
 									value={msg}
-									onChange={handleMsgChange} // <-- ACT
+									onChange={handleMsgChange}
 									className="bg-transparent text-white text-lg font-light text-center resize-none placeholder-white/20 focus:outline-none h-32 leading-relaxed"
 									placeholder="Escribe tu mensaje al vacío..."
 									maxLength={280}
