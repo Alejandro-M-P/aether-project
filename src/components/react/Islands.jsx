@@ -35,7 +35,8 @@ const imageCache = {};
 // CONFIGURACIÓN DE TIEMPO
 const MESSAGE_LIFETIME = 300000; // 5 minutos (300 segundos) - Ajustado
 
-// CONFIGURACIÓN DE PROXIMIDAD
+// CONSTANTE
+const DEFAULT_ZOOM = 2; // Zoom mundial de inicio
 const PROXIMITY_DEGREES = 0.05;
 
 // Función de distancia Euclidiana simplificada (para la lógica de proximidad)
@@ -60,7 +61,7 @@ export const UniverseCanvas = () => {
 	// ESTADO: Ubicación del usuario que ve el mapa
 	const [viewerLocation, setViewerLocation] = useState(null);
 	const [nearbyThoughtExists, setNearbyThoughtExists] = useState(false);
-	const [currentMapZoom, setCurrentMapZoom] = useState(2);
+	const [currentMapZoom, setCurrentMapZoom] = useState(DEFAULT_ZOOM);
 
 	// NUEVO ESTADO PARA EL TOAST DE MENSAJE
 	const [newThoughtToast, setNewThoughtToast] = useState(null);
@@ -106,7 +107,7 @@ export const UniverseCanvas = () => {
 	// EFECTO PRINCIPAL DE CONEXIÓN Y FILTROS
 	useEffect(() => {
 		// CORRECCIÓN CRÍTICA: Resetea el filtro de búsqueda al cargar el componente
-		// Esto garantiza que todos los mensajes sean visibles inmediatamente.
+		// Esto garantiza que el filtro no esté activo al entrar a la aplicación.
 		searchQuery.set("");
 
 		if (!auth.currentUser) {
@@ -129,9 +130,6 @@ export const UniverseCanvas = () => {
 			);
 		}
 
-		// ... el resto de la lógica de onSnapshot sigue aquí
-		// La lógica de onSnapshot se mueve a un scope más profundo para usar el clean-up.
-
 		// LÓGICA DE FIREBASE PARA PARTÍCULAS/MENSAJES
 		const q = query(
 			collection(db, "thoughts"),
@@ -143,6 +141,7 @@ export const UniverseCanvas = () => {
 
 		const unsubscribe = onSnapshot(q, (snapshot) => {
 			// Lógica para el Toast (Detección de Nuevo Mensaje - Instantánea)
+			// Se activa el toast sin la restricción de tiempo.
 			if (!isInitialLoad.current && snapshot.docs.length > 0) {
 				const newestDoc = snapshot.docs[0];
 				const newestMessageData = newestDoc.data();
@@ -253,7 +252,14 @@ export const UniverseCanvas = () => {
 	// Preparar los mensajes para el mapa (filtrados por búsqueda)
 	const filteredMessages = useMemo(() => {
 		const filterText = searchQuery.get().toLowerCase().trim();
-		// Ya están filtrados por expiración en el onSnapshot, solo queda el filtro de búsqueda
+
+		// CORRECCIÓN CRÍTICA: Ignorar el filtro si estamos en el zoom mundial (DEFAULT_ZOOM=2)
+		// Esto asegura que al entrar, se muestren todos los mensajes AUNQUE la búsqueda esté activada.
+		if (currentMapZoom <= DEFAULT_ZOOM) {
+			return particlesRef.current;
+		}
+
+		// Si hay filtro Y el zoom es alto (para búsqueda local), aplicamos el filtro.
 		return particlesRef.current.filter((p) => {
 			if (!filterText) return true;
 			return (
@@ -261,7 +267,7 @@ export const UniverseCanvas = () => {
 				p.category.toLowerCase().includes(filterText)
 			);
 		});
-	}, [searchQuery.get()]);
+	}, [searchQuery.get(), currentMapZoom]);
 
 	return (
 		<>

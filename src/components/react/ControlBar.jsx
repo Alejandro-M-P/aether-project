@@ -134,7 +134,7 @@ export default function ControlBar() {
 			setCat("");
 			setOpen(false);
 
-			// AÑADIDO: Limpiar la query de búsqueda para asegurar que todos los mensajes se vean al instante.
+			// Limpiar la query de búsqueda para asegurar que todos los mensajes se vean al instante.
 			searchQuery.set("");
 		} catch (error) {
 			console.error("Error enviando:", error);
