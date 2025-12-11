@@ -1,134 +1,38 @@
 @import "tailwindcss";
 
-/* NUEVO: Contenedor circular para simular la Tierra */
-.map-circle-wrapper {
-	width: 90vmin; /* 90% del viewport más pequeño (alto o ancho) */
-	height: 90vmin;
-	max-width: 900px;
-	max-height: 900px;
-	border-radius: 50%; /* Hace el contenedor circular */
-	overflow: hidden; /* Oculta el mapa fuera del círculo */
-	box-shadow: 0 0 50px rgba(0, 191, 255, 0.3), 0 0 10px rgba(255, 255, 255, 0.5); /* Resplandor */
-	position: relative; /* Necesario para posicionar el mapa hijo */
+/* BASE */
+body {
+	background-color: black;
+	color: white;
+	overflow: hidden; /* Evita scrollbars en la app principal */
 }
 
-/* Clases para el MapContainer y Leaflet */
-.map-container,
-.map-container .leaflet-container {
-	height: 100%;
-	width: 100%;
-	/* El TileLayer en Islands.jsx ya usa tiles oscuros */
+/* SCROLLBAR MINIMALISTA (Estilo Terminal) */
+.custom-scrollbar::-webkit-scrollbar {
+	width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+	background: #09090b; 
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+	background: #27272a; 
+	border-radius: 0px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+	background: #3f3f46; 
 }
 
-/* ------------------------------------------------ */
-/* ESTILOS CORREGIDOS PARA MARCADOR DE FOTO Y OVERLAY */
-/* ------------------------------------------------ */
-
-/* 1. Contenedor de Leaflet (L.divIcon) */
-.transparent-marker-icon {
-	background-color: transparent !important;
-	border: none !important;
-	box-shadow: none !important;
-	pointer-events: auto;
+/* UTILIDADES DE ANIMACIÓN */
+@keyframes fadeIn {
+	from { opacity: 0; transform: scale(0.98); }
+	to { opacity: 1; transform: scale(1); }
 }
 
-/* 2. Contenedor principal de la foto/overlay */
-.thought-marker-container {
-	position: relative;
-	width: 40px;
-	height: 40px;
-	pointer-events: auto;
+.animate-in {
+	animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* 3. La imagen de perfil */
-.thought-marker-container img {
-	z-index: 2;
-	position: relative;
-	box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
-	border: 2px solid;
-	pointer-events: auto;
-	cursor: default;
-	transition: box-shadow 0.2s;
-}
-
-/* 4. Mensaje Flotante (Overlay) */
-.thought-message-overlay {
-	position: absolute;
-	top: -65px;
-	left: 50%;
-	/* Posición inicial para la animación de entrada */
-	transform: translateX(-50%) translateY(5px);
-	z-index: 10;
-	/* CRÍTICO: Debe ser NONE para que el clic (si existiera) pase a través del mensaje */
-	pointer-events: none;
-	/* VOLVEMOS A OPACIDAD 0 PARA QUE SE OCULTE POR DEFECTO */
-	opacity: 0;
-	/* Animación de entrada/salida en hover */
-	transition: opacity 0.3s ease-out, transform 0.3s ease-out;
-	text-align: center;
-}
-
-/* 5. Efecto de visualización al hacer hover (El Pop-up animado) */
-.thought-marker-container:hover .thought-message-overlay {
-	opacity: 1;
-	transform: translateX(-50%) translateY(0); /* Sube a la posición final */
-}
-
-.message-bubble {
-	width: auto;
-	min-width: 150px;
-	display: inline-block;
-	text-align: left;
-}
-
-/* ------------------------------------------------ */
-/* ESTILOS DE PULSO (Mantenidos) */
-/* ------------------------------------------------ */
-
-.pulse-ring {
-	position: absolute;
-	top: -2px;
-	left: -2px;
-	width: 32px;
-	height: 32px;
-	border-radius: 50%;
-	z-index: 1;
-}
-
-@keyframes pulse-green-ring {
-	0% {
-		box-shadow: 0 0 0 0 rgba(30, 200, 30, 0.4);
-	}
-	70% {
-		box-shadow: 0 0 0 15px rgba(30, 200, 30, 0);
-	}
-	100% {
-		box-shadow: 0 0 0 0 rgba(30, 200, 30, 0);
-	}
-}
-
-@keyframes pulse-blue-ring {
-	0% {
-		box-shadow: 0 0 0 0 rgba(0, 191, 255, 0.4);
-	}
-	70% {
-		box-shadow: 0 0 0 15px rgba(0, 191, 255, 0);
-	}
-	100% {
-		box-shadow: 0 0 0 0 rgba(0, 191, 255, 0);
-	}
-}
-
-/* Aplicar la animación de pulso a la clase de anillo */
-.pulse-green-ring {
-	animation: pulse-green-ring 2s infinite;
-}
-.pulse-blue-ring {
-	animation: pulse-blue-ring 2s infinite;
-}
-
-.user-marker {
-	background-color: white !important;
-	border-radius: 50%;
-	box-shadow: 0 0 10px #fff;
+/* CLASES DE UTILIDAD PARA LEAFLET (Si quedan residuos) */
+.leaflet-container {
+	background: black !important;
 }

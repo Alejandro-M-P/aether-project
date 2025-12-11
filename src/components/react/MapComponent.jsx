@@ -1,168 +1,142 @@
-import React, { useEffect, useRef, useMemo } from "react";
-import {
-	MapContainer,
-	TileLayer,
-	Marker,
-	Popup,
-	useMap,
-	useMapEvents,
-} from "react-leaflet";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
-import { MapPin } from "lucide-react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import Globe from "react-globe.gl";
+import { MapPin, X } from "lucide-react";
 
-// 🚨 CRÍTICO: Inicialización de iconos de Leaflet (solo si window existe)
-if (typeof window !== "undefined") {
-	delete L.Icon.Default.prototype._get;
-	L.Icon.Default.mergeOptions({
-		iconRetinaUrl: "/marker-icon-2x.png",
-		iconUrl: "/marker-icon.png",
-		shadowUrl: "/marker-shadow.png",
-	});
-}
+// Texturas oscuras para el modo minimalista
+const EARTH_NIGHT_TEXTURE = "//unpkg.com/three-globe/example/img/earth-night.jpg";
+const EARTH_BUMP_TEXTURE = "//unpkg.com/three-globe/example/img/earth-topology.png";
 
-// CONSTANTES
-const DEFAULT_CENTER = [20, 0];
-const DEFAULT_ZOOM = 2;
-const ZOOM_LEVEL_CITY_THRESHOLD = 4; // Umbral para cambiar de País a Ciudad/Pueblo
+export const MapComponent = ({ messages, openProfile }) => {
+	const globeEl = useRef();
+	const [selectedThought, setSelectedThought] = useState(null);
+	const [dimensions, setDimensions] = useState({ width: 800, height: 800 });
 
-// Componente para rastrear el zoom (para filtrar la ubicación)
-const MapZoomTracker = ({ updateZoom }) => {
-	const map = useMap();
+	// Ajustar tamaño del globo a la ventana automáticamente
+	useEffect(() => {
+		const handleResize = () => {
+			setDimensions({
+				width: window.innerWidth,
+				height: window.innerHeight
+			});
+		};
+		// Ejecutar al inicio y al cambiar tamaño
+		if (typeof window !== 'undefined') {
+			window.addEventListener('resize', handleResize);
+			handleResize();
+		}
+		return () => {
+			if (typeof window !== 'undefined') window.removeEventListener('resize', handleResize);
+		};
+	}, []);
 
-	// Hook para rastrear el zoom y enviarlo al componente padre (Islands.jsx)
-	useMapEvents({
-		zoomend: () => {
-			updateZoom(map.getZoom());
-		},
-		// Establecer el zoom inicial al montar
-		load: () => {
-			updateZoom(map.getZoom());
-		},
-	});
+	// Configuración inicial: Auto-rotación y posición
+	useEffect(() => {
+		if (globeEl.current) {
+			const controls = globeEl.current.controls();
+			controls.autoRotate = true;
+			controls.autoRotateSpeed = 0.5;
+			// Zoom inicial (altitud)
+			globeEl.current.pointOfView({ altitude: 2.5 });
+		}
+	}, []);
 
-	return null;
-};
+	// Filtramos solo mensajes con ubicación válida
+	const validMessages = useMemo(() => {
+		return messages.filter(m => m.location && m.location.lat && m.location.lon);
+	}, [messages]);
 
-// Componente principal del mapa (la Tierra)
-export const MapComponent = ({
-	messages,
-	viewerLocation,
-	nearbyThoughtExists,
-	openProfile,
-	updateZoom,
-	currentMapZoom,
-}) => {
 	return (
-		<MapContainer
-			center={DEFAULT_CENTER}
-			zoom={DEFAULT_ZOOM}
-			scrollWheelZoom={true}
-			minZoom={DEFAULT_ZOOM}
-			style={{ height: "100%", width: "100%", zIndex: 0 }}
-			className="map-container"
-		>
-			{/* Tiles Satelitales (Similar a Google Earth) */}
-			<TileLayer
-				attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
-				url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+		<div className="relative w-full h-full bg-black cursor-move">
+			<Globe
+				ref={globeEl}
+				width={dimensions.width}
+				height={dimensions.height}
+				globeImageUrl={EARTH_NIGHT_TEXTURE}
+				bumpImageUrl={EARTH_BUMP_TEXTURE}
+				backgroundColor="#000000" // Fondo negro absoluto
+				atmosphereColor="#4ade80" // Verde Aether sutil
+				atmosphereAltitude={0.15}
+				
+				// --- MARCADORES (Puntos de luz) ---
+				htmlElementsData={validMessages}
+				htmlLat={d => d.location.lat}
+				htmlLng={d => d.location.lon}
+				htmlAltitude={0.01}
+				htmlElement={d => {
+					const el = document.createElement('div');
+					// Punto pulsante simple
+					const colorClass = d.isNearby ? 'bg-emerald-500' : 'bg-blue-500';
+					const shadowClass = d.isNearby ? 'shadow-[0_0_10px_#10b981]' : 'shadow-[0_0_10px_#3b82f6]';
+					
+					el.innerHTML = `
+						<div class="relative group cursor-pointer" style="transform: translate(-50%, -50%);">
+							<div class="w-2 h-2 ${colorClass} rounded-full ${shadowClass} animate-pulse"></div>
+							<div class="absolute -inset-2 rounded-full border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+						</div>
+					`;
+					
+					el.onclick = () => {
+						setSelectedThought(d);
+						// Detener rotación al interactuar
+						if (globeEl.current) globeEl.current.controls().autoRotate = false;
+					};
+					return el;
+				}}
 			/>
 
-			{/* Rastreador de Zoom */}
-			<MapZoomTracker updateZoom={updateZoom} />
-
-			{/* Marcadores de Mensajes (Partículas) */}
-			{messages.map((p) => {
-				if (p.location) {
-					const [lat, lon] = [p.location.lat, p.location.lon];
-
-					// LÓGICA DE FILTRADO POR ZOOM
-					const isCityZoom = currentMapZoom >= ZOOM_LEVEL_CITY_THRESHOLD;
-					const displayLocation =
-						isCityZoom && p.cityName
-							? p.cityName
-							: p.countryName || "Ubicación Desconocida";
-
-					// Icono original (pin) restaurado
-					const markerIcon = new L.Icon({
-						iconUrl: p.isNearby ? "/map-pin-green.svg" : "/map-pin-blue.svg",
-						iconSize: [30, 30],
-						iconAnchor: [15, 30],
-						className: `pulse-marker ${
-							p.isNearby ? "pulse-green" : "pulse-blue"
-						}`,
-					});
-
-					return (
-						<Marker
-							key={p.id}
-							position={[lat, lon]}
-							icon={markerIcon}
-							// No hay eventHandlers para que el clic simple abra el Popup.
+			{/* --- POPUP MINIMALISTA NEGRO --- */}
+			{selectedThought && (
+				<div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 animate-in zoom-in duration-200 pointer-events-none">
+					{/* pointer-events-auto para que los botones dentro funcionen */}
+					<div className="bg-black pointer-events-auto text-white p-6 border border-zinc-800 shadow-2xl w-80 font-mono relative">
+						
+						{/* Botón Cerrar */}
+						<button 
+							onClick={() => setSelectedThought(null)}
+							className="absolute -top-3 -right-3 bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800 p-1 rounded-full transition-colors cursor-pointer"
 						>
-							{/* POPUP MINIMALISTA NEGRO con foto de perfil */}
-							<Popup offset={L.point(0, -20)}>
-								<div className="bg-black/90 text-white p-3 rounded-lg border border-white/10 shadow-lg w-48 font-mono text-xs backdrop-blur-sm">
-									{/* Bloque de Perfil (Foto de perfil, nombre y categoría) */}
-									<div className="flex items-center gap-3 border-b pb-2 mb-2 border-white/10">
-										<img
-											src={p.photoURL || "/favicon.svg"}
-											alt={p.displayName}
-											className="w-8 h-8 rounded-full border border-white/20 object-cover"
-										/>
-										<div className="flex flex-col">
-											<p className="text-xs font-bold text-white">
-												{p.displayName?.split(" ")[0] || "Anónimo"}
-											</p>
-											<p className="text-[10px] text-zinc-500 uppercase tracking-widest">
-												{p.category}
-											</p>
-										</div>
-									</div>
+							<X size={14} />
+						</button>
 
-									{/* Mensaje */}
-									<div className="text-zinc-300">
-										<p className="italic text-sm leading-snug">"{p.text}"</p>
-									</div>
+						{/* Cabecera: Avatar y Nombre */}
+						<div className="flex items-center gap-4 border-b border-zinc-900 pb-4 mb-4">
+							<img
+								src={selectedThought.photoURL || "/favicon.svg"}
+								alt="Avatar"
+								className="w-10 h-10 rounded-full border border-zinc-800 grayscale hover:grayscale-0 transition-all object-cover"
+							/>
+							<div className="flex flex-col">
+								<span className="text-sm font-bold tracking-widest uppercase text-white">
+									{selectedThought.displayName?.split(" ")[0] || "ANÓNIMO"}
+								</span>
+								<span className="text-[10px] text-emerald-500 uppercase tracking-[0.2em]">
+									{selectedThought.category}
+								</span>
+							</div>
+						</div>
 
-									{/* Ubicación (Minimalista, si existe) */}
-									{p.countryName && (
-										<div className="text-[10px] text-sky-400 mt-2 flex justify-end items-center gap-1">
-											<MapPin size={10} /> {displayLocation}
-										</div>
-									)}
+						{/* Mensaje */}
+						<p className="text-zinc-300 text-sm leading-relaxed mb-6 font-light italic">
+							"{selectedThought.text}"
+						</p>
 
-									{/* Botón para Perfil */}
-									<button
-										onClick={() => openProfile(p)}
-										className="text-[10px] text-center text-emerald-400 mt-3 border-t pt-1 border-white/10 w-full hover:text-emerald-300 font-bold uppercase tracking-widest bg-transparent"
-									>
-										Ver Perfil
-									</button>
-								</div>
-							</Popup>
-						</Marker>
-					);
-				}
-				return null;
-			})}
-
-			{/* Marcador de ubicación del visor */}
-			{viewerLocation && (
-				<Marker
-					position={[viewerLocation.lat, viewerLocation.lon]}
-					icon={
-						new L.Icon({
-							iconUrl: "/target-user.svg",
-							iconSize: [30, 30],
-							iconAnchor: [15, 15],
-							className: "user-marker",
-						})
-					}
-				>
-					<Popup>Estás aquí (Visor)</Popup>
-				</Marker>
+						{/* Pie: Ubicación y Botón */}
+						<div className="flex justify-between items-end">
+							<div className="flex items-center gap-1 text-[10px] text-zinc-600 uppercase">
+								<MapPin size={10} />
+								{selectedThought.cityName || selectedThought.countryName || "SISTEMA"}
+							</div>
+							
+							<button
+								onClick={() => openProfile(selectedThought)}
+								className="text-[10px] bg-white text-black px-3 py-1 uppercase font-bold tracking-wider hover:bg-zinc-200 transition-colors cursor-pointer"
+							>
+								PERFIL
+							</button>
+						</div>
+					</div>
+				</div>
 			)}
-		</MapContainer>
+		</div>
 	);
 };
