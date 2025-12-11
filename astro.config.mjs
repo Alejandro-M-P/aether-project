@@ -10,18 +10,11 @@ export default defineConfig({
 
   vite: {
     plugins: [], 
-
-    // FIX final para el error de THREE.JS (Missing "./webgpu").
+    
+    // Mantenemos la lista mínima de noExternal, pero la degradación de three.js
+    // es lo que realmente resolverá el problema de "./webgpu".
     ssr: {
-      noExternal: [
-        'three', 
-        'react-globe.gl', 
-        'three-globe', 
-        'globe.gl',
-        '@tweenjs/tween.js', 
-        'three-conic-polygon-geometry',
-        'three-geojson-geometry'
-      ]
+      noExternal: ['three', 'react-globe.gl', 'three-globe']
     }
   }
 });
