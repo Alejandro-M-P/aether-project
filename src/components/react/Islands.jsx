@@ -103,7 +103,12 @@ export const UniverseCanvas = () => {
 		[]
 	);
 
+	// EFECTO PRINCIPAL DE CONEXIÓN Y FILTROS
 	useEffect(() => {
+		// CORRECCIÓN CRÍTICA: Resetea el filtro de búsqueda al cargar el componente
+		// Esto garantiza que todos los mensajes sean visibles inmediatamente.
+		searchQuery.set("");
+
 		if (!auth.currentUser) {
 			signInAnonymously(auth).catch(() => {});
 		}
@@ -124,6 +129,9 @@ export const UniverseCanvas = () => {
 			);
 		}
 
+		// ... el resto de la lógica de onSnapshot sigue aquí
+		// La lógica de onSnapshot se mueve a un scope más profundo para usar el clean-up.
+
 		// LÓGICA DE FIREBASE PARA PARTÍCULAS/MENSAJES
 		const q = query(
 			collection(db, "thoughts"),
@@ -134,7 +142,7 @@ export const UniverseCanvas = () => {
 		let nearbyFound = false;
 
 		const unsubscribe = onSnapshot(q, (snapshot) => {
-			// Lógica para el Toast (Detección de Nuevo Mensaje)
+			// Lógica para el Toast (Detección de Nuevo Mensaje - Instantánea)
 			if (!isInitialLoad.current && snapshot.docs.length > 0) {
 				const newestDoc = snapshot.docs[0];
 				const newestMessageData = newestDoc.data();
@@ -142,7 +150,7 @@ export const UniverseCanvas = () => {
 
 				// Solo si es un mensaje diferente al que ya hemos notificado
 				if (newestMessageId !== prevNewestMessageId.current) {
-					// Activamos el toast sin la limitación de tiempo (instantáneo)
+					// Activamos el toast instantáneo
 					setNewThoughtToast({
 						text: newestMessageData.message,
 						displayName: newestMessageData.displayName,
