@@ -132,22 +132,7 @@ export const MapComponent = ({
 				return null;
 			})}
 
-			{/* Marcador de ubicación del visor */}
-			{viewerLocation && (
-				<Marker
-					position={[viewerLocation.lat, viewerLocation.lon]}
-					icon={
-						new L.Icon({
-							iconUrl: "/target-user.svg",
-							iconSize: [30, 30],
-							iconAnchor: [15, 15],
-							className: "user-marker",
-						})
-					}
-				>
-					<Popup>Estás aquí (Visor)</Popup>
-				</Marker>
-			)}
+			{/* Marcador de ubicación del visor ELIMINADO */}
 		</MapContainer>
 	);
 };
