@@ -2,11 +2,78 @@ import React, { useState } from "react";
 import { Search, X } from "lucide-react";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
-// 🚨 CORRECCIÓN DE RUTA: Subir dos niveles (../../) para encontrar firebase.js
-import { db, auth } from "../../firebase.js"; 
-// 🚨 CORRECCIÓN DE RUTA: Subir dos niveles (../../) para encontrar store.js
+import { db, auth } from "../../firebase.js";
 import { useStore } from "@nanostores/react";
 import { searchQuery } from "../../store.js";
+
+// CONSTANTE para la privacidad: ~0.05 grados equivale a ~5.5 km cerca del ecuador
+const RANDOM_RADIUS_DEGREE = 0.05;
+
+// AÑADIDO: Offset Aleatorio (5-6km)
+const addRandomOffset = (location) => {
+	// 🚨 Aseguramos que la función modifique la copia
+	const newLocation = { ...location };
+
+	// Generar un ángulo y una distancia aleatorios
+	const angle = Math.random() * 2 * Math.PI;
+	const distance = Math.random() * RANDOM_RADIUS_DEGREE;
+
+	// Fórmula para añadir un offset (aproximado)
+	newLocation.lat += distance * Math.cos(angle);
+	newLocation.lon += distance * Math.sin(angle);
+
+	return newLocation;
+};
+
+// FUNCIÓN AUXILIAR: Obtiene la ubicación precisa (lat/lon)
+const getPreciseLocation = () => {
+	return new Promise((resolve) => {
+		if ("geolocation" in navigator) {
+			navigator.geolocation.getCurrentPosition(
+				(position) => {
+					resolve({
+						lat: position.coords.latitude,
+						lon: position.coords.longitude,
+					});
+				},
+				(error) => {
+					console.warn("Error de geolocalización precisa:", error);
+					resolve(null);
+				},
+				{ enableHighAccuracy: false, timeout: 5000, maximumAge: 0 }
+			);
+		} else {
+			resolve(null); // Navegador no soporta geolocalización
+		}
+	});
+};
+
+// FUNCIÓN AUXILIAR: Convierte coordenadas a ciudad/país (Nominatim - OpenStreetMap)
+const reverseGeocode = async (lat, lon) => {
+	try {
+		const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
+		const response = await fetch(url, { headers: { "Accept-Language": "es" } });
+		const data = await response.json();
+
+		const address = data.address;
+		if (address) {
+			// Prioridad: Ciudad, Pueblo, etc.
+			const city =
+				address.city || address.town || address.village || address.municipality;
+			const country = address.country;
+
+			return {
+				cityName: city || null,
+				countryName: country || null,
+			};
+		}
+
+		return { cityName: null, countryName: null };
+	} catch (error) {
+		console.error("Error en Reverse Geocoding:", error);
+		return { cityName: null, countryName: null };
+	}
+};
 
 export default function ControlBar() {
 	const $searchQuery = useStore(searchQuery);
@@ -26,15 +93,43 @@ export default function ControlBar() {
 		}
 
 		setIsSending(true);
+
+		// 1. OBTENER LA UBICACIÓN PRECISA
+		let preciseLocation = await getPreciseLocation();
+
+		let randomizedLocation = null;
+		let geoNames = { cityName: null, countryName: null };
+
+		if (preciseLocation) {
+			// 2. AÑADIR EL OFFSET ALEATORIO para anonimizar la posición
+			randomizedLocation = addRandomOffset(preciseLocation);
+
+			// 3. CONVERTIR A NOMBRE DE UBICACIÓN usando la ubicación RANDOMIZADA
+			geoNames = await reverseGeocode(
+				randomizedLocation.lat,
+				randomizedLocation.lon
+			);
+		}
+
 		try {
-			await addDoc(collection(db, "thoughts"), {
+			// 4. PREPARAR DATOS
+			const thoughtData = {
 				message: msg,
 				category: cat || "general",
 				timestamp: serverTimestamp(),
 				uid: user.uid,
 				photoURL: user.photoURL,
 				displayName: user.displayName,
-			});
+			};
+
+			if (randomizedLocation) {
+				thoughtData.location = randomizedLocation; // Coordenadas aleatorias (para mapa/proximidad)
+				thoughtData.cityName = geoNames.cityName; // Nombre de la ciudad (randomizada)
+				thoughtData.countryName = geoNames.countryName; // Nombre del país (randomizada)
+			}
+
+			await addDoc(collection(db, "thoughts"), thoughtData);
+
 			setMsg("");
 			setCat("");
 			setOpen(false);
@@ -71,7 +166,7 @@ export default function ControlBar() {
 
 			{/* MODAL - Z-INDEX 60 para estar encima de todo */}
 			{open && (
-				<div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-[60] flex items-center justify-center p-6">
+				<div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-60 flex items-center justify-center p-6">
 					<div className="w-full max-w-lg relative animate-in fade-in zoom-in duration-300">
 						<button
 							onClick={() => setOpen(false)}

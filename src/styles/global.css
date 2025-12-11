@@ -1,1 +1,63 @@
 @import "tailwindcss";
+
+/* NUEVO: Contenedor circular para simular la Tierra */
+.map-circle-wrapper {
+	width: 90vmin; /* 90% del viewport más pequeño (alto o ancho) */
+	height: 90vmin;
+	max-width: 900px;
+	max-height: 900px;
+	border-radius: 50%; /* Hace el contenedor circular */
+	overflow: hidden; /* Oculta el mapa fuera del círculo */
+	box-shadow: 0 0 50px rgba(0, 191, 255, 0.3), 0 0 10px rgba(255, 255, 255, 0.5); /* Resplandor */
+	position: relative; /* Necesario para posicionar el mapa hijo */
+}
+
+/* Clases para el MapContainer y Leaflet */
+.map-container,
+.map-container .leaflet-container {
+	height: 100%;
+	width: 100%;
+	/* El TileLayer en Islands.jsx ya usa tiles oscuros */
+}
+
+/* Estilos de animación (mantenidos) */
+@keyframes pulse-green {
+	0% {
+		box-shadow: 0 0 0 0 rgba(30, 200, 30, 0.4); /* Verde */
+	}
+	70% {
+		box-shadow: 0 0 0 20px rgba(30, 200, 30, 0);
+	}
+	100% {
+		box-shadow: 0 0 0 0 rgba(30, 200, 30, 0);
+	}
+}
+.pulse-green {
+	animation: pulse-green 2s infinite;
+}
+
+@keyframes pulse-blue {
+	0% {
+		box-shadow: 0 0 0 0 rgba(0, 191, 255, 0.4); /* Azul */
+	}
+	70% {
+		box-shadow: 0 0 0 20px rgba(0, 191, 255, 0);
+	}
+	100% {
+		box-shadow: 0 0 0 0 rgba(0, 191, 255, 0);
+	}
+}
+.pulse-blue {
+	animation: pulse-blue 2s infinite;
+}
+
+.leaflet-marker-icon {
+	box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+	background-color: transparent;
+}
+
+.user-marker {
+	background-color: white !important;
+	border-radius: 50%;
+	box-shadow: 0 0 10px #fff;
+}

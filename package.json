@@ -16,10 +16,12 @@
     "@types/react-dom": "^19.2.3",
     "astro": "^5.16.4",
     "firebase": "^12.6.0",
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.555.0",
     "nanostores": "^1.1.0",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
+    "react-leaflet": "^5.0.0",
     "tailwindcss": "^4.1.17"
   }
 }
