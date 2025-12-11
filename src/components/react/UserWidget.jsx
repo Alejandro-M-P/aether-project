@@ -1,282 +1,298 @@
-import React, { useEffect, useState } from "react";
-
-// 🚨 CORRECCIÓN IMPORTANTE: Subir dos niveles (../../)
+import React, { useState, useEffect, useRef, useMemo } from "react";
+// OJO: No importamos librerías 3D aquí arriba para evitar errores de servidor
+import { MapPin, X } from "lucide-react";
 import { auth } from "../../firebase.js";
+import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
+import { User, LogIn, LogOut } from "lucide-react";
 
-import {
-	GoogleAuthProvider,
-	signInWithPopup,
-	signOut,
-	onAuthStateChanged,
-	updateProfile,
-} from "firebase/auth";
-// ☁️ Importamos funciones de Storage
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { User, LogOut, Save, X, Edit3, Camera, Loader2, UploadCloud } from "lucide-react";
+// --- RECURSOS HD ---
+const EARTH_BASE_HD = "//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"; 
+const EARTH_TOPOLOGY = "//unpkg.com/three-globe/example/img/earth-topology.png";
+const CLOUDS_IMG = "//unpkg.com/three-globe/example/img/clouds.png";
 
-export default function UserWidget() {
-	const [user, setUser] = useState(null);
-	const [isOpen, setIsOpen] = useState(false);
-	const [isEditing, setIsEditing] = useState(false);
+// --- COLORES ---
+const THEME_COLOR = "#06b6d4"; 
+const ATMOSPHERE_COLOR = "#3a9efd";
+
+export const MapComponent = ({ messages, openProfile }) => {
+	const globeEl = useRef();
+	// Estado para cargar las librerías solo en el cliente
+	const [GlobePackage, setGlobePackage] = useState(null);
+	const [ThreePackage, setThreePackage] = useState(null);
 	
-	// Estados para edición
-	const [newDisplayName, setNewDisplayName] = useState("");
-	const [imageFile, setImageFile] = useState(null); // Archivo seleccionado
-	const [previewUrl, setPreviewUrl] = useState(null); // Previsualización local
-	const [loading, setLoading] = useState(false);
+	const [selectedThoughtId, setSelectedThoughtId] = useState(null);
+	const [dimensions, setDimensions] = useState({ width: 800, height: 800 });
+	const [globeReady, setGlobeReady] = useState(false);
 
-	const menuRef = useRef(null);
-	const fileInputRef = useRef(null);
-
+	// 1. CARGA SEGURA DE LIBRERÍAS (Evita "window is not defined")
 	useEffect(() => {
-		const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-			setUser(currentUser);
-		});
-		return () => unsubscribe();
+		if (typeof window !== "undefined") {
+			Promise.all([
+				import("react-globe.gl"),
+				import("three")
+			]).then(([globeMod, threeMod]) => {
+				setGlobePackage(() => globeMod.default);
+				setThreePackage(threeMod);
+			}).catch(err => console.error("Error cargando 3D:", err));
+		}
 	}, []);
 
-	const handleLogin = async () => {
-		const provider = new GoogleAuthProvider();
-		try {
-			await signInWithPopup(auth, provider);
-		} catch (error) {
-			console.error("Error al iniciar sesión:", error);
-		}
-	};
+	// 2. AJUSTE DE PANTALLA
+	useEffect(() => {
+		if (typeof window === 'undefined') return;
+		const handleResize = () => {
+			setDimensions({ width: window.innerWidth, height: window.innerHeight });
+		};
+		window.addEventListener('resize', handleResize);
+		handleResize();
+		return () => window.removeEventListener('resize', handleResize);
+	}, []);
 
-	const handleLogout = async () => {
-		await signOut(auth);
-		setIsOpen(false);
-	};
+	// 3. CONFIGURACIÓN DEL GLOBO
+	useEffect(() => {
+		if (GlobePackage && ThreePackage && globeEl.current && !globeReady) {
+			setGlobeReady(true);
+			const globe = globeEl.current;
+			const THREE = ThreePackage;
+			
+			// Calidad de renderizado
+			const renderer = globe.renderer();
+			renderer.setPixelRatio(window.devicePixelRatio || 1); 
+			renderer.antialias = true;
+			renderer.shadowMap.enabled = true;
+			renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-	// Manejar selección de archivo
-	const handleFileSelect = (e) => {
-		if (e.target.files && e.target.files[0]) {
-			const file = e.target.files[0];
-			setImageFile(file);
-			setPreviewUrl(URL.createObjectURL(file)); // Crear URL temporal para previsualizar
-		}
-	};
+			// Controles
+			const controls = globe.controls();
+			controls.autoRotate = false; // Estático para facilitar el click
+			controls.enableZoom = true;
+			controls.zoomSpeed = 1.2;
+			controls.dampingFactor = 0.05;
+			controls.minDistance = globe.getGlobeRadius() * 1.001; 
+			controls.maxDistance = globe.getGlobeRadius() * 10;
 
-	const handleSaveProfile = async () => {
-		if (!auth.currentUser) return;
-		setLoading(true);
-		try {
-			let photoURL = auth.currentUser.photoURL;
+			// Iluminación
+			globe.scene().children = globe.scene().children.filter(ch => ch.type !== 'DirectionalLight' && ch.type !== 'AmbientLight');
+			
+			const sunLight = new THREE.DirectionalLight(0xffffff, 2.0);
+			sunLight.position.set(-100, 50, 50); 
+			globe.scene().add(sunLight);
+			
+			const ambientLight = new THREE.AmbientLight(0x404060, 1.2); 
+			globe.scene().add(ambientLight);
+			
+			const rimLight = new THREE.DirectionalLight(THEME_COLOR, 2.5);
+			rimLight.position.set(50, 0, -80);
+			globe.scene().add(rimLight);
 
-			// 1. Si hay un archivo nuevo, subirlo a Firebase Storage
-			if (imageFile) {
-				const storage = getStorage();
-				// Crear referencia única: avatars/UID/timestamp_nombre
-				const storageRef = ref(storage, `avatars/${auth.currentUser.uid}/${Date.now()}_${imageFile.name}`);
+			// Nubes
+			new THREE.TextureLoader().load(CLOUDS_IMG, (cloudsTexture) => {
+				const cloudsMaterial = new THREE.MeshPhongMaterial({
+					map: cloudsTexture,
+					transparent: true,
+					opacity: 0.3,
+					blending: THREE.AdditiveBlending,
+					side: THREE.DoubleSide,
+					depthWrite: false,
+				});
+				const cloudsMesh = new THREE.Mesh(new THREE.SphereGeometry(globe.getGlobeRadius() * 1.012, 75, 75), cloudsMaterial);
+				globe.scene().add(cloudsMesh);
 				
-				// Subir bytes
-				const snapshot = await uploadBytes(storageRef, imageFile);
-				
-				// Obtener URL pública
-				photoURL = await getDownloadURL(snapshot.ref);
-			}
-
-			// 2. Actualizar perfil de Auth
-			await updateProfile(auth.currentUser, {
-				displayName: newDisplayName,
-				photoURL: photoURL
+				const rotateClouds = () => {
+					if (cloudsMesh) cloudsMesh.rotation.y += 0.00005; 
+					requestAnimationFrame(rotateClouds);
+				};
+				rotateClouds();
 			});
 
-			// Actualizar estado local
-			setUser({ ...auth.currentUser, displayName: newDisplayName, photoURL: photoURL });
-			setIsEditing(false);
-			setImageFile(null); // Limpiar archivo seleccionado
-		} catch (error) {
-			console.error("Error actualizando perfil:", error);
-			alert("Error al actualizar. Verifica tu conexión.");
-		} finally {
-			setLoading(false);
+			globe.pointOfView({ altitude: 2.0, lat: 20, lng: 0 });
 		}
-	};
+	}, [GlobePackage, ThreePackage, globeReady]);
 
-	// ------------------ ESTADO: NO CONECTADO ------------------
-	if (!user) {
-		return (
-			<button
-				onClick={handleLogout}
-				className="pointer-events-auto flex items-center gap-3 px-3 py-1.5 rounded-full bg-zinc-900/60 border border-white/10 hover:border-red-500/50 transition-all group backdrop-blur-md cursor-pointer"
-				title="Cerrar sesión"
-			>
-				<img
-					src={user.photoURL}
-					alt={user.displayName}
-					className="w-6 h-6 rounded-full border border-white/20"
-				/>
-				<span className="text-[10px] font-mono text-zinc-300 uppercase tracking-widest group-hover:text-red-400">
-					{user.displayName?.split(" ")[0]}
-				</span>
-			</button>
-		);
-	}
+	// 4. DATOS
+	const mapData = useMemo(() => {
+		return messages.filter(m => m.location && m.location.lat && m.location.lon)
+			.map(m => ({ ...m, isSelected: m.id === selectedThoughtId }));
+	}, [messages, selectedThoughtId]);
 
-	// ------------------ ESTADO: CONECTADO ------------------
+	if (!GlobePackage) return <div className="w-full h-full bg-black" />;
+
+	const Globe = GlobePackage;
+
 	return (
-		<div className="relative pointer-events-auto" ref={menuRef}>
-			{/* Botón Principal de Usuario */}
-			<button
-				onClick={() => setIsOpen(!isOpen)}
-				className={`flex items-center gap-3 pl-2 pr-4 py-2 rounded-full border backdrop-blur-xl transition-all duration-300 cursor-pointer shadow-lg ${
-					isOpen 
-						? "bg-zinc-800 border-white/20 ring-2 ring-white/5" 
-						: "bg-zinc-950/60 border-white/10 hover:border-white/30 hover:bg-zinc-900"
-				}`}
-			>
-				<img
-					src={user.photoURL || "/favicon.svg"}
-					alt={user.displayName}
-					className="w-8 h-8 rounded-full border-2 border-zinc-700 object-cover"
-				/>
-				<div className="flex flex-col items-start">
-					<span className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest leading-none mb-0.5">
-						Operador
-					</span>
-					<span className="text-xs font-bold text-white tracking-wide leading-none max-w-[100px] truncate">
-						{user.displayName?.split(" ")[0] || "Anónimo"}
-					</span>
-				</div>
-			</button>
+		<div className="relative w-full h-full bg-black cursor-move select-none">
+			<Globe
+				ref={globeEl}
+				width={dimensions.width}
+				height={dimensions.height}
+				rendererConfig={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
+				globeImageUrl={EARTH_BASE_HD} 
+				bumpImageUrl={EARTH_TOPOLOGY}
+				bumpScale={6}
+				globeTileEngineUrl={(x, y, l) => l > 19 ? null : `https://mt1.google.com/vt/lyrs=s&x=${x}&y=${y}&z=${l}`}
+				backgroundColor="#000000"
+				atmosphereColor={ATMOSPHERE_COLOR}
+				atmosphereAltitude={0.18}
+				
+				// Cerrar popup al hacer clic fuera
+				onGlobeClick={() => setSelectedThoughtId(null)}
+				
+				htmlElementsData={mapData}
+				htmlLat={d => d.location.lat}
+				htmlLng={d => d.location.lon}
+				htmlAltitude={0}
+				htmlTransitionDuration={300}
+				htmlElement={d => {
+					const el = document.createElement('div');
+					el.style.pointerEvents = "auto";
+					el.style.cursor = "pointer";
 
-			{/* Menú Desplegable / Panel de Perfil */}
-			{isOpen && (
-				<div className="absolute top-full right-0 mt-4 w-80 bg-zinc-950/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-5 duration-200 z-50 ring-1 ring-white/5">
+					const stopDrag = (e) => {
+						e.stopPropagation();
+						if (e.type === 'pointerdown') {
+							e.target.setPointerCapture?.(e.pointerId);
+						}
+					};
 					
-					{/* Cabecera del Menú */}
-					<div className="relative h-28 bg-gradient-to-b from-zinc-800 to-zinc-950 flex flex-col items-center justify-center border-b border-white/5 pt-4">
-						<div className="absolute inset-0 bg-[url('/favicon.svg')] bg-repeat opacity-5"></div>
-						<button 
-							onClick={() => setIsOpen(false)}
-							className="absolute top-3 right-3 text-zinc-500 hover:text-white transition-colors"
-						>
-							<X size={16} />
-						</button>
-						
-						{/* Avatar con opción de carga en modo edición */}
-						<div className="relative group">
-							<div 
-								className={`relative w-20 h-20 rounded-full border-4 border-zinc-950 shadow-xl overflow-hidden bg-zinc-900 ${isEditing ? "cursor-pointer ring-2 ring-emerald-500/50" : ""}`}
-								onClick={() => isEditing && fileInputRef.current.click()}
-							>
-								<img
-									src={previewUrl || user.photoURL || "/favicon.svg"}
-									alt="Avatar"
-									className={`w-full h-full object-cover transition-opacity ${isEditing ? "group-hover:opacity-50" : ""}`}
-								/>
-								
-								{/* Icono de cámara sobre la imagen al editar */}
-								{isEditing && (
-									<div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-										<UploadCloud size={24} className="text-white" />
-									</div>
-								)}
-							</div>
+					el.onpointerdown = stopDrag;
+					el.onmousedown = stopDrag;
+					el.ontouchstart = stopDrag;
 
-							{/* Indicador de estado online (solo si no se edita) */}
-							{!isEditing && (
-								<div className="absolute bottom-0 right-0 w-6 h-6 bg-emerald-500 rounded-full border-2 border-zinc-950 flex items-center justify-center shadow-lg">
-									<div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+					// --- CONTENIDO HTML ---
+					let htmlContent = `
+						<div class="relative flex flex-col items-center transform -translate-x-1/2 -translate-y-full group transition-all duration-300 ${d.isSelected ? 'z-50' : 'z-10 hover:z-40'}">
+					`;
+
+					// POPUP
+					if (d.isSelected) {
+						htmlContent += `
+							<div class="absolute bottom-[130%] mb-1 w-80 bg-zinc-950/95 border border-cyan-500 rounded-xl overflow-hidden shadow-[0_0_60px_rgba(6,182,212,0.6)] backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 duration-300 origin-bottom ring-1 ring-white/20 cursor-default" onpointerdown="event.stopPropagation()">
+								<div class="h-1 w-full bg-gradient-to-r from-cyan-500 via-white to-cyan-500 opacity-80"></div>
+								<div class="p-5 flex flex-col gap-4">
+									<div class="flex items-center gap-4 border-b border-white/10 pb-3">
+										<img src="${d.photoURL || '/favicon.svg'}" class="w-12 h-12 rounded-full border-2 border-cyan-400 object-cover bg-black" />
+										<div class="flex flex-col min-w-0">
+											<span class="text-sm font-bold uppercase tracking-widest text-white truncate">
+												${d.displayName ? d.displayName.split(' ')[0] : 'ANÓNIMO'}
+											</span>
+											<span class="text-[10px] text-cyan-400 font-mono flex items-center gap-1.5 mt-0.5 uppercase truncate">
+												<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+												${d.cityName || d.countryName || 'SISTEMA'}
+											</span>
+										</div>
+									</div>
+									<div class="relative">
+										<div class="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-cyan-500 to-transparent"></div>
+										<p class="text-sm font-light text-zinc-200 italic leading-relaxed pl-3">
+											"${d.text}"
+										</p>
+									</div>
+									<button class="js-profile-btn mt-1 w-full py-2.5 bg-white text-black hover:bg-cyan-400 text-[10px] uppercase font-bold tracking-[0.2em] rounded transition-all shadow-lg active:scale-95 cursor-pointer">
+										Ver Perfil
+									</button>
 								</div>
-							)}
-							
-							{/* Input de archivo oculto */}
-							<input 
-								type="file" 
-								ref={fileInputRef} 
-								className="hidden" 
-								accept="image/*" 
-								onChange={handleFileSelect}
-							/>
+							</div>
+						`;
+					}
+
+					// ICONO (Burbuja)
+					const iconBg = d.isSelected ? "bg-white text-black border-cyan-500 scale-110" : "bg-black/60 text-cyan-400 border-cyan-500/50 group-hover:bg-black/90 group-hover:text-white group-hover:border-cyan-400 group-hover:scale-110";
+					const iconShadow = d.isSelected ? "shadow-[0_0_30px_rgba(255,255,255,0.8)]" : "shadow-[0_0_15px_rgba(6,182,212,0.3)]";
+					
+					htmlContent += `
+							<div class="h-6 w-[1px] bg-gradient-to-t from-transparent via-cyan-500 to-cyan-400 opacity-80"></div>
+							<div class="w-9 h-9 rounded-full border ${iconBg} ${iconShadow} backdrop-blur-md flex items-center justify-center transition-all duration-300 transform">
+								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+									<path d="M8 10h8"/>
+									<path d="M8 14h4"/>
+								</svg>
+							</div>
 						</div>
-						
-						{isEditing && (
-							<span className="text-[10px] text-zinc-500 mt-2 font-mono uppercase tracking-wide">
-								Toca para cambiar foto
-							</span>
-						)}
-					</div>
+					`;
 
-					{/* Contenido del Cuerpo */}
-					<div className="pt-6 pb-6 px-6 space-y-5">
-						
-						{/* Modo Edición */}
-						{isEditing ? (
-							<div className="space-y-4 animate-in fade-in zoom-in duration-200">
-								<div>
-									<label className="text-[10px] uppercase tracking-widest text-zinc-500 font-mono mb-1 block">Nickname</label>
-									<div className="flex items-center gap-2 bg-zinc-900/50 border border-white/10 rounded-lg px-3 py-2 focus-within:border-emerald-500/50 transition-colors">
-										<User size={14} className="text-zinc-500" />
-										<input 
-											value={newDisplayName}
-											onChange={(e) => setNewDisplayName(e.target.value)}
-											className="bg-transparent border-none text-sm text-white focus:outline-none w-full font-mono"
-											placeholder="Nombre de Viajero"
-										/>
-									</div>
-								</div>
+					el.innerHTML = htmlContent;
 
-								<div className="flex gap-2 pt-2">
-									<button 
-										onClick={() => {
-											setIsEditing(false);
-											setImageFile(null);
-											setPreviewUrl(user.photoURL); // Restaurar preview
-										}}
-										className="flex-1 py-2 rounded-lg border border-white/10 text-xs text-zinc-400 hover:bg-white/5 hover:text-white transition-colors"
-									>
-										Cancelar
-									</button>
-									<button 
-										onClick={handleSaveProfile}
-										disabled={loading}
-										className="flex-1 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-900/20 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-									>
-										{loading ? (
-											<><Loader2 size={14} className="animate-spin" /> Guardando</>
-										) : (
-											<><Save size={14} /> Guardar</>
-										)}
-									</button>
-								</div>
-							</div>
-						) : (
-							/* Modo Visualización */
-							<div className="text-center space-y-1">
-								<h3 className="text-xl text-white font-bold tracking-tight">
-									{user.displayName || "Sin Nombre"}
-								</h3>
-								<p className="text-xs text-zinc-500 font-mono truncate px-4">
-									{user.email}
-								</p>
-								
-								<button 
-									onClick={() => {
-										setIsEditing(true);
-										setNewDisplayName(user.displayName || "");
-									}}
-									className="mt-4 text-[10px] font-mono uppercase tracking-widest text-emerald-500 hover:text-emerald-400 flex items-center justify-center gap-2 mx-auto py-2 px-4 hover:bg-emerald-500/10 rounded-full transition-all"
-								>
-									<Edit3 size={12} /> Editar Perfil
-								</button>
-							</div>
-						)}
+					el.onclick = (e) => {
+						e.stopPropagation();
+						if (e.target.closest('.js-profile-btn')) {
+							openProfile(d);
+							return;
+						}
+						setSelectedThoughtId(d.id);
+						globeEl.current.pointOfView({ lat: d.location.lat, lng: d.location.lon, altitude: 0.22 }, 1000);
+					};
 
-						<div className="h-px bg-white/5 w-full my-4"></div>
-
-						<button
-							onClick={handleLogout}
-							className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 hover:text-red-300 transition-all text-xs font-mono uppercase tracking-widest group"
-						>
-							<LogOut size={14} className="group-hover:-translate-x-1 transition-transform" />
-							Desconectar Sistema
-						</button>
-					</div>
-				</div>
-			)}
+					return el;
+				}}
+			/>
 		</div>
 	);
-}
+};
+
+export const UserWidget = () => {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    let unsub;
+    let mounted = true;
+    (async () => {
+      if (typeof window === "undefined") return;
+      try {
+        const mod = await import("firebase/auth");
+        const { onAuthStateChanged } = mod;
+        unsub = onAuthStateChanged(auth, (u) => {
+          if (mounted) setUser(u);
+        });
+      } catch (err) {
+        console.error("Error cargando firebase/auth:", err);
+      }
+    })();
+    return () => {
+      mounted = false;
+      if (typeof unsub === "function") unsub();
+    };
+  }, []);
+
+  const handleSignIn = async () => {
+    if (typeof window === "undefined") return;
+    try {
+      const mod = await import("firebase/auth");
+      const { GoogleAuthProvider, signInWithPopup } = mod;
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (err) {
+      console.error("Signin error:", err);
+    }
+  };
+
+  const handleSignOut = async () => {
+    if (typeof window === "undefined") return;
+    try {
+      const mod = await import("firebase/auth");
+      const { signOut } = mod;
+      await signOut(auth);
+    } catch (err) {
+      console.error("Signout error:", err);
+    }
+  };
+
+  return (
+    <div className="pointer-events-auto flex items-center gap-3">
+      {user ? (
+        <button onClick={handleSignOut} className="flex items-center gap-3 bg-zinc-900 border border-white/5 px-3 py-2 rounded-full hover:scale-95 transition">
+          <img src={user.photoURL || "/favicon.svg"} alt="avatar" className="w-8 h-8 rounded-full object-cover border-2 border-zinc-800" />
+          <span className="text-sm text-white font-mono uppercase tracking-wide">{user.displayName || "Viajero"}</span>
+          <LogOut className="w-4 h-4 text-zinc-400" />
+        </button>
+      ) : (
+        <button onClick={handleSignIn} className="flex items-center gap-2 bg-cyan-600/10 border border-cyan-500/20 px-3 py-2 rounded-full hover:bg-cyan-600/20 transition">
+          <LogIn className="w-4 h-4 text-cyan-400" />
+          <span className="text-sm text-cyan-300 font-mono uppercase tracking-wide">Conectar</span>
+        </button>
+      )}
+    </div>
+  );
+};
+
+export default UserWidget;

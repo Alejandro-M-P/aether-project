@@ -18,7 +18,7 @@ import { X, MapPin } from "lucide-react";
 // Carga dinámica del mapa (ahora es el Globo 3D)
 const MapComponent = React.lazy(() =>
 	import("./MapComponent.jsx")
-		.then((mod) => ({ default: mod.UniverseCanvas })) 
+		.then((mod) => ({ default: mod.MapComponent }))
 		.catch((err) => {
 			console.error("Fallo al cargar MapComponent:", err);
 			return {
@@ -85,7 +85,6 @@ export const UniverseCanvas = () => {
 			signInAnonymously(auth).catch(() => {});
 		}
 
-		// OBTENER UBICACIÓN DEL VISUALIZADOR
 		if (typeof window !== "undefined" && "geolocation" in navigator) {
 			navigator.geolocation.getCurrentPosition(
 				(position) => {
@@ -94,10 +93,7 @@ export const UniverseCanvas = () => {
 						lon: position.coords.longitude,
 					});
 				},
-				(error) => {
-					console.warn("Geolocalización del visor denegada o fallida.", error);
-					setViewerLocation(null);
-				}
+				(error) => console.warn("Geo error:", error)
 			);
 		}
 
@@ -138,17 +134,11 @@ export const UniverseCanvas = () => {
 				}
 			});
 
-			// Filtrar mensajes expirados antes de guardarlos
-			particlesRef.current = valid.filter(
-				(p) => Date.now() - p.createdAt <= MESSAGE_LIFETIME
-			);
-
-			// Si el texto de búsqueda está activo, no considerar el zoom de cercanía
-			const filterText = searchQuery.get().toLowerCase().trim();
-			setNearbyThoughtExists(nearbyFound && !filterText);
+			particlesRef.current = valid.filter((p) => Date.now() - p.createdAt <= MESSAGE_LIFETIME);
+			setParticlesLoadedVersion((v) => v + 1);
 		});
 		return () => unsubscribe();
-	}, [viewerLocation, openProfileMemo]);
+	}, [viewerLocation]);
 
 	const filteredMessages = useMemo(() => {
 		const filterText = $searchQuery.toLowerCase().trim();
@@ -163,23 +153,18 @@ export const UniverseCanvas = () => {
 
 	return (
 		<>
-			{/* Contenedor del Mapa (Se mostrará solo en el cliente) */}
-			<div className="w-full h-full -z-10 bg-black">
-				{/* Suspense muestra un fallback mientras el componente del mapa carga */}
+			{/* FONDO NEGRO Y MAPA 3D */}
+			<div className="fixed inset-0 w-full h-full bg-black -z-10">
 				<React.Suspense
 					fallback={
-						<div className="flex items-center justify-center w-full h-full text-zinc-500 font-mono">
-							Cargando Mapa...
+						<div className="flex items-center justify-center w-full h-full bg-black text-zinc-600 font-mono text-xs uppercase tracking-widest animate-pulse">
+							Inicializando Secuencia Aether...
 						</div>
 					}
 				>
 					<MapComponent
 						messages={filteredMessages}
-						viewerLocation={viewerLocation}
-						nearbyThoughtExists={nearbyThoughtExists}
 						openProfile={openProfileMemo}
-						updateZoom={updateZoom} // Pasar la función de actualización de zoom
-						currentMapZoom={currentMapZoom} // Pasar el zoom actual
 					/>
 				</React.Suspense>
 			</div>
