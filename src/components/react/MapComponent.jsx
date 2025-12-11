@@ -26,7 +26,7 @@ const DEFAULT_CENTER = [20, 0];
 const DEFAULT_ZOOM = 2;
 const ZOOM_LEVEL_CITY_THRESHOLD = 4; // Umbral para cambiar de País a Ciudad/Pueblo
 
-// Fallback SVG para el marcador cuando no hay foto de perfil (copiado de Islands.jsx)
+// Fallback SVG para el marcador cuando no hay foto de perfil
 const DEFAULT_AVATAR_MARKER = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 8v4'/%3E%3Cpath d='M12 16h.01'/%3E%3C/svg%3E`;
 
 // Componente para rastrear el zoom (para filtrar la ubicación)
@@ -87,7 +87,7 @@ export const MapComponent = ({
 							: p.countryName || "Ubicación Desconocida";
 
 					// Preparar datos para el marcador HTML
-					// AHORA USA EL FALLBACK SVG SI photoURL ES NULO
+					// Usa la foto de Google o el SVG de reserva
 					const photoUrl = p.photoURL || DEFAULT_AVATAR_MARKER;
 					const baseClass = p.isNearby
 						? "border-emerald-600"
@@ -123,7 +123,7 @@ export const MapComponent = ({
 					const markerIcon = L.divIcon({
 						html: markerHtml,
 						iconSize: [40, 40], // Tamaño del contenedor (ajustado para la imagen de 32px + padding)
-						iconAnchor: [20, 40], // Centro de la imagen, parte inferior como ancla
+						iconAnchor: [20, 20], // Ancla en el CENTRO de la imagen (20, 20)
 						className: "transparent-marker-icon", // Clase para eliminar el fondo por defecto de Leaflet
 					});
 

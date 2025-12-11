@@ -29,50 +29,57 @@
 	background-color: transparent !important;
 	border: none !important;
 	box-shadow: none !important;
+	/* Permitir que los clics pasen al marcador de Leaflet subyacente. */
+	pointer-events: all;
 }
 
 .thought-marker-container {
 	position: relative;
 	width: 40px;
 	height: 40px;
-	pointer-events: auto; /* Permitir interacciones con el marcador */
+	/* Hacemos que el contenedor interno ignore clics para que Leaflet los maneje */
+	pointer-events: none;
 }
 
 .thought-marker-container img {
 	z-index: 2;
 	position: relative;
 	box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+	pointer-events: all; /* Permitir clic en la imagen */
 }
 
 /* Mensaje Flotante Animado (Overlay) */
 .thought-message-overlay {
 	position: absolute;
-	/* Centrado y posicionado por encima del marcador */
 	top: -65px;
 	left: 50%;
-	transform: translate(-50%, 0);
+	/* Aplicamos la animación de movimiento al elemento interno (.message-bubble) */
+	transform: translateX(-50%);
 	z-index: 10;
-	pointer-events: none; /* No bloquear clics en el mapa */
+	pointer-events: none;
 	opacity: 0;
-	transition: opacity 0.5s, transform 0.5s;
+	transition: opacity 0.3s;
 	text-align: center;
-	width: 200px; /* Ancho fijo para la burbuja de mensaje */
 }
 
 /* Efecto de visualización y animación flotante al hacer hover */
 .thought-marker-container:hover .thought-message-overlay {
 	opacity: 1;
+}
+
+/* El movimiento se aplica DENTRO del message-bubble */
+.thought-marker-container:hover .message-bubble {
 	animation: float-message 4s ease-in-out infinite;
 }
 
 @keyframes float-message {
 	0%,
 	100% {
-		transform: translate(-50%, 0);
+		transform: translateY(0);
 		opacity: 0.9;
 	}
 	50% {
-		transform: translate(-50%, -8px); /* Ligeramente más arriba */
+		transform: translateY(-8px); /* Solo mover verticalmente */
 		opacity: 1;
 	}
 }
@@ -93,7 +100,6 @@
 	height: 32px;
 	border-radius: 50%;
 	z-index: 1;
-	/* La imagen es de 32x32px (w-8 h-8 en Tailwind es 2rem = 32px, si se usa la configuración base) */
 }
 
 /* Modificar los keyframes existentes para que afecten al nuevo anillo/div */
