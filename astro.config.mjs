@@ -1,20 +1,20 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
-import tailwindcss from '@tailwindcss/vite';
+// import tailwindcss from '@tailwindcss/vite'; // <--- ELIMINADO
 
 // https://astro.build/config
+/** @type {import('astro').AstroUserConfig} */ // <--- CORREGIDO
 export default defineConfig({
   integrations: [react()],
 
   vite: {
-    plugins: [tailwindcss()],
-    // FIX para el error "Missing "./webgpu" specifier in "three" package"
-    // Forzamos a Vite a no externalizar estas dependencias durante el SSR.
+    // Se elimina el uso de 'tailwindcss()' de los plugins para corregir TS2322
+    plugins: [], 
+    
+    // Mantener el FIX original para el error de THREE.JS (Missing "./webgpu")
     ssr: {
       noExternal: ['three', 'react-globe.gl', 'three-globe']
     }
-    // Se elimina la configuración "resolve.alias" para "three"
-    // para que Vite/Node pueda usar la resolución estándar de módulos.
   }
 });
