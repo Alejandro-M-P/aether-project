@@ -1,17 +1,17 @@
 ---
-import '../styles/global.css';
+import '../styles/global.css'; // <-- ESTA LÍNEA ES CRÍTICA
 
 const { title } = Astro.props;
 ---
 
 <!doctype html>
 <html lang="es" class="bg-black text-white overflow-hidden">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width" />
-		<title>{title}</title>
-	</head>
-	<body class="cursor-crosshair selection:bg-white/20 selection:text-white">
-		<slot />
-	</body>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width" />
+        <title>{title}</title>
+    </head>
+    <body class="cursor-crosshair selection:bg-white/20 selection:text-white">
+        <slot />
+    </body>
 </html>
