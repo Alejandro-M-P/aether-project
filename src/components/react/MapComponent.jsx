@@ -1,89 +1,102 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import Globe from "react-globe.gl";
+// NO importamos librerías 3D aquí arriba para evitar errores de servidor
 import { MapPin, X } from "lucide-react";
-import * as THREE from "three";
 
-// --- RECURSOS ---
-const CLOUDS_IMG = "//unpkg.com/three-globe/example/img/clouds.png";
+// --- RECURSOS HD ---
+const EARTH_BASE_HD = "//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"; 
 const EARTH_TOPOLOGY = "//unpkg.com/three-globe/example/img/earth-topology.png";
-const EARTH_BASE = "//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"; 
+const CLOUDS_IMG = "//unpkg.com/three-globe/example/img/clouds.png";
 
-// --- CONFIGURACIÓN DE COLOR ---
+// --- COLORES ---
 const THEME_COLOR = "#06b6d4"; 
 const ATMOSPHERE_COLOR = "#3a9efd";
 
 export const MapComponent = ({ messages, openProfile }) => {
 	const globeEl = useRef();
-	const [selectedThought, setSelectedThought] = useState(null);
+	// Estado para cargar las librerías solo en el cliente
+	const [GlobePackage, setGlobePackage] = useState(null);
+	const [ThreePackage, setThreePackage] = useState(null);
+	
+	const [selectedThoughtId, setSelectedThoughtId] = useState(null);
 	const [dimensions, setDimensions] = useState({ width: 800, height: 800 });
 	const [globeReady, setGlobeReady] = useState(false);
 
-	// 1. AJUSTE DE PANTALLA
+	// 1. CARGA SEGURA DE LIBRERÍAS (Evita "window is not defined")
 	useEffect(() => {
-		const handleResize = () => {
-			if (typeof window !== 'undefined') {
-				setDimensions({
-					width: window.innerWidth,
-					height: window.innerHeight
-				});
-			}
-		};
-		if (typeof window !== 'undefined') {
-			window.addEventListener('resize', handleResize);
-			handleResize();
+		if (typeof window !== "undefined") {
+			Promise.all([
+				import("react-globe.gl"),
+				import("three")
+			]).then(([globeMod, threeMod]) => {
+				setGlobePackage(() => globeMod.default);
+				setThreePackage(threeMod);
+			}).catch(err => console.error("Error cargando 3D:", err));
 		}
-		return () => {
-			if (typeof window !== 'undefined') window.removeEventListener('resize', handleResize);
-		};
 	}, []);
 
-	// 2. CONFIGURACIÓN VISUAL
+	// 2. AJUSTE DE PANTALLA
 	useEffect(() => {
-		if (globeEl.current && !globeReady) {
+		if (typeof window === 'undefined') return;
+		const handleResize = () => {
+			setDimensions({ width: window.innerWidth, height: window.innerHeight });
+		};
+		window.addEventListener('resize', handleResize);
+		handleResize();
+		return () => window.removeEventListener('resize', handleResize);
+	}, []);
+
+	// 3. CONFIGURACIÓN DEL GLOBO
+	useEffect(() => {
+		if (GlobePackage && ThreePackage && globeEl.current && !globeReady) {
 			setGlobeReady(true);
 			const globe = globeEl.current;
+			const THREE = ThreePackage;
+			
+			// Calidad de renderizado
+			const renderer = globe.renderer();
+			renderer.setPixelRatio(window.devicePixelRatio || 1); 
+			renderer.antialias = true;
+			renderer.shadowMap.enabled = true;
+			renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+			// Controles
 			const controls = globe.controls();
-			
-			// --- CONTROLES DE ALTA PRECISIÓN ---
-			controls.autoRotate = false;
+			controls.autoRotate = false; // Estático para facilitar el click
 			controls.enableZoom = true;
-			controls.zoomSpeed = 1.0;
-			controls.dampingFactor = 0.1;
-			
-			// AJUSTE CRÍTICO: Permitimos acercarnos muchísimo (casi a nivel de calle)
+			controls.zoomSpeed = 1.2;
+			controls.dampingFactor = 0.05;
 			controls.minDistance = globe.getGlobeRadius() * 1.001; 
 			controls.maxDistance = globe.getGlobeRadius() * 10;
 
-			// --- ILUMINACIÓN ---
+			// Iluminación
+			globe.scene().children = globe.scene().children.filter(ch => ch.type !== 'DirectionalLight' && ch.type !== 'AmbientLight');
+			
 			const sunLight = new THREE.DirectionalLight(0xffffff, 2.0);
-			sunLight.position.set(-10, 10, 5);
+			sunLight.position.set(-100, 50, 50); 
 			globe.scene().add(sunLight);
 			
-			const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); 
+			const ambientLight = new THREE.AmbientLight(0x404060, 1.2); 
 			globe.scene().add(ambientLight);
+			
+			const rimLight = new THREE.DirectionalLight(THEME_COLOR, 2.5);
+			rimLight.position.set(50, 0, -80);
+			globe.scene().add(rimLight);
 
-			// --- NUBES ---
+			// Nubes
 			new THREE.TextureLoader().load(CLOUDS_IMG, (cloudsTexture) => {
 				const cloudsMaterial = new THREE.MeshPhongMaterial({
 					map: cloudsTexture,
 					transparent: true,
-					opacity: 0.4,
+					opacity: 0.3,
 					blending: THREE.AdditiveBlending,
 					side: THREE.DoubleSide,
 					depthWrite: false,
 				});
-				
-				const cloudsRadius = globe.getGlobeRadius() * 1.015;
-				
-				const cloudsMesh = new THREE.Mesh(
-					new THREE.SphereGeometry(cloudsRadius, 75, 75),
-					cloudsMaterial
-				);
-				
+				const cloudsMesh = new THREE.Mesh(new THREE.SphereGeometry(globe.getGlobeRadius() * 1.012, 75, 75), cloudsMaterial);
 				globe.scene().add(cloudsMesh);
 				
 				const rotateClouds = () => {
-					if (cloudsMesh) cloudsMesh.rotation.y += 0.0001; 
+					if (cloudsMesh) cloudsMesh.rotation.y += 0.00005; 
 					requestAnimationFrame(rotateClouds);
 				};
 				rotateClouds();
@@ -91,11 +104,18 @@ export const MapComponent = ({ messages, openProfile }) => {
 
 			globe.pointOfView({ altitude: 2.0, lat: 20, lng: 0 });
 		}
-	}, [globeReady]);
+	}, [GlobePackage, ThreePackage, globeReady]);
 
-	const validMessages = useMemo(() => {
-		return messages.filter(m => m.location && m.location.lat && m.location.lon);
-	}, [messages]);
+	// 4. DATOS
+	const mapData = useMemo(() => {
+		return messages.filter(m => m.location && m.location.lat && m.location.lon)
+			.map(m => ({ ...m, isSelected: m.id === selectedThoughtId }));
+	}, [messages, selectedThoughtId]);
+
+	// Placeholder mientras carga para evitar errores
+	if (!GlobePackage) return <div className="w-full h-full bg-black" />;
+
+	const Globe = GlobePackage;
 
 	return (
 		<div className="relative w-full h-full bg-black cursor-move select-none">
@@ -103,117 +123,121 @@ export const MapComponent = ({ messages, openProfile }) => {
 				ref={globeEl}
 				width={dimensions.width}
 				height={dimensions.height}
-				
-				// --- MOTOR DE MAPA GOOGLE HD ---
-				globeImageUrl={EARTH_BASE} 
-				globeTileEngineUrl={(x, y, l) => {
-					// [CORRECCIÓN CLAVE]: Aumentamos el límite de zoom de 12 a 19.
-					// Esto permite cargar las texturas de máxima resolución al acercarse.
-					if (l > 19) return null; 
-					return `https://mt1.google.com/vt/lyrs=s&x=${x}&y=${y}&z=${l}`;
-				}}
-				
-				// Ajustamos el relieve para que no se vea exagerado al hacer mucho zoom
+				rendererConfig={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
+				globeImageUrl={EARTH_BASE_HD} 
 				bumpImageUrl={EARTH_TOPOLOGY}
-				bumpScale={5} 
-				
-				// --- AMBIENTE ---
+				bumpScale={6}
+				globeTileEngineUrl={(x, y, l) => l > 19 ? null : `https://mt1.google.com/vt/lyrs=s&x=${x}&y=${y}&z=${l}`}
 				backgroundColor="#000000"
 				atmosphereColor={ATMOSPHERE_COLOR}
-				atmosphereAltitude={0.15}
+				atmosphereAltitude={0.18}
 				
-				// --- MARCADORES ---
-				htmlElementsData={validMessages}
+				// Cerrar popup al hacer clic fuera
+				onGlobeClick={() => setSelectedThoughtId(null)}
+				
+				htmlElementsData={mapData}
 				htmlLat={d => d.location.lat}
 				htmlLng={d => d.location.lon}
-				htmlAltitude={0} 
+				htmlAltitude={0}
+				htmlTransitionDuration={300}
 				htmlElement={d => {
 					const el = document.createElement('div');
+					// HABILITAR PUNTERO
+					el.style.pointerEvents = "auto";
 					el.style.cursor = "pointer";
-					el.style.pointerEvents = "auto"; 
 
-					el.innerHTML = `
-						<div style="transform: translate(-50%, -100%);" class="relative group flex flex-col items-center justify-center transition-transform duration-300 hover:scale-110">
-							<div class="absolute inset-0 bg-cyan-500/40 rounded-xl blur-md animate-pulse z-0"></div>
-							<div class="relative bg-black/70 backdrop-blur-md p-2 rounded-xl border border-cyan-400/80 shadow-[0_0_15px_#06b6d4] z-10 flex items-center justify-center">
-								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${THEME_COLOR}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+					// --- LA CLAVE PARA QUE EL CLICK FUNCIONE ---
+					// Esto evita que el globo capture el evento como "arrastre"
+					const stopDrag = (e) => {
+						e.stopPropagation();
+						// Capturar el puntero asegura que el navegador sepa que estamos interactuando con este elemento
+						if (e.type === 'pointerdown') {
+							e.target.setPointerCapture?.(e.pointerId);
+						}
+					};
+					
+					// Asignamos los listeners directamente
+					el.onpointerdown = stopDrag;
+					el.onmousedown = stopDrag;
+					el.ontouchstart = stopDrag;
+
+					// --- HTML DEL MARCADOR ---
+					let htmlContent = `
+						<div class="relative flex flex-col items-center transform -translate-x-1/2 -translate-y-full group transition-all duration-300 ${d.isSelected ? 'z-50' : 'z-10 hover:z-40'}">
+					`;
+
+					// A. EL POPUP (Visible solo si está seleccionado)
+					if (d.isSelected) {
+						htmlContent += `
+							<div class="absolute bottom-[130%] mb-1 w-80 bg-zinc-950/95 border border-cyan-500 rounded-xl overflow-hidden shadow-[0_0_60px_rgba(6,182,212,0.6)] backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 duration-300 origin-bottom ring-1 ring-white/20 cursor-default" onpointerdown="event.stopPropagation()">
+								<div class="h-1 w-full bg-gradient-to-r from-cyan-500 via-white to-cyan-500 opacity-80"></div>
+								<div class="p-5 flex flex-col gap-4">
+									<div class="flex items-center gap-4 border-b border-white/10 pb-3">
+										<img src="${d.photoURL || '/favicon.svg'}" class="w-12 h-12 rounded-full border-2 border-cyan-400 object-cover bg-black" />
+										<div class="flex flex-col min-w-0">
+											<span class="text-sm font-bold uppercase tracking-widest text-white truncate">
+												${d.displayName ? d.displayName.split(' ')[0] : 'ANÓNIMO'}
+											</span>
+											<span class="text-[10px] text-cyan-400 font-mono flex items-center gap-1.5 mt-0.5 uppercase truncate">
+												<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+												${d.cityName || d.countryName || 'SISTEMA'}
+											</span>
+										</div>
+									</div>
+									<div class="relative">
+										<div class="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-cyan-500 to-transparent"></div>
+										<p class="text-sm font-light text-zinc-200 italic leading-relaxed pl-3">
+											"${d.text}"
+										</p>
+									</div>
+									<button class="js-profile-btn mt-1 w-full py-2.5 bg-white text-black hover:bg-cyan-400 text-[10px] uppercase font-bold tracking-[0.2em] rounded transition-all shadow-lg active:scale-95 cursor-pointer">
+										Ver Perfil
+									</button>
+								</div>
+							</div>
+						`;
+					}
+
+					// B. EL ICONO VISUAL (Burbuja de Mensaje - Sin Texto)
+					const iconBg = d.isSelected ? "bg-white text-black border-cyan-500 scale-110" : "bg-black/60 text-cyan-400 border-cyan-500/50 group-hover:bg-black/90 group-hover:text-white group-hover:border-cyan-400 group-hover:scale-110";
+					const iconShadow = d.isSelected ? "shadow-[0_0_30px_rgba(255,255,255,0.8)]" : "shadow-[0_0_15px_rgba(6,182,212,0.3)]";
+					
+					htmlContent += `
+							<div class="h-6 w-[1px] bg-gradient-to-t from-transparent via-cyan-500 to-cyan-400 opacity-80"></div>
+							<div class="w-9 h-9 rounded-full border ${iconBg} ${iconShadow} backdrop-blur-md flex items-center justify-center transition-all duration-300 transform">
+								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
 									<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+									<path d="M8 10h8"/>
+									<path d="M8 14h4"/>
 								</svg>
 							</div>
-							<div class="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-cyan-400/80 relative -mt-1 z-10 filter drop-shadow-[0_2px_3px_#06b6d4]"></div>
 						</div>
 					`;
-					
+
+					el.innerHTML = htmlContent;
+
+					// --- LOGICA DE CLIC ---
 					el.onclick = (e) => {
-						e.stopPropagation(); 
-						setSelectedThought(d);
+						e.stopPropagation();
 						
-						// Zoom muy cercano al hacer clic para aprovechar la nueva calidad
+						// Comprobar si clicó en el botón de perfil
+						if (e.target.closest('.js-profile-btn')) {
+							openProfile(d);
+							return;
+						}
+
+						// Si no, seleccionamos el mensaje y hacemos zoom
+						setSelectedThoughtId(d.id);
 						globeEl.current.pointOfView({
 							lat: d.location.lat,
 							lng: d.location.lon,
-							altitude: 0.1 // Muy cerca
-						}, 2000);
+							altitude: 0.22 
+						}, 1000);
 					};
+
 					return el;
 				}}
 			/>
-
-			{/* --- MODAL MENSAJE --- */}
-			{selectedThought && (
-				<div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 animate-in zoom-in duration-300 w-full max-w-sm px-4 pointer-events-none">
-					<div className="bg-black/95 pointer-events-auto text-white p-6 border border-zinc-800 shadow-[0_0_100px_rgba(6,182,212,0.25)] relative backdrop-blur-xl ring-1 ring-cyan-500/30 rounded-sm">
-						
-						<button 
-							onClick={() => setSelectedThought(null)}
-							className="absolute -top-3 -right-3 bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-700 hover:border-cyan-500 p-1.5 rounded-full transition-all cursor-pointer z-20 shadow-lg"
-						>
-							<X size={16} />
-						</button>
-
-						<div className="flex items-center gap-4 border-b border-zinc-900 pb-4 mb-5">
-							<div className="relative">
-								<img
-									src={selectedThought.photoURL || "/favicon.svg"}
-									alt="User"
-									className="w-12 h-12 rounded-full border border-zinc-800 object-cover grayscale opacity-90"
-								/>
-								<div className="absolute -bottom-1 -right-1 w-3 h-3 bg-cyan-500 border-2 border-black rounded-full shadow-[0_0_10px_#06b6d4]"></div>
-							</div>
-							<div>
-								<h3 className="text-sm font-bold tracking-[0.2em] text-white uppercase">
-									{selectedThought.displayName?.split(" ")[0] || "ANÓNIMO"}
-								</h3>
-								<div className="mt-1">
-									<span className="text-[10px] bg-zinc-900 text-cyan-400 border border-zinc-800 px-2 py-0.5 rounded uppercase tracking-wider shadow-inner">
-										{selectedThought.category}
-									</span>
-								</div>
-							</div>
-						</div>
-
-						<div className="mb-6 relative">
-							<p className="text-zinc-200 text-base font-light leading-relaxed italic pl-3 border-l-2 border-cyan-500">
-								"{selectedThought.text}"
-							</p>
-						</div>
-
-						<div className="flex justify-between items-center pt-3 border-t border-zinc-900">
-							<div className="flex items-center gap-2 text-[10px] text-zinc-500 font-mono uppercase">
-								<MapPin size={12} className="text-cyan-500" />
-								{selectedThought.cityName || selectedThought.countryName || "SISTEMA"}
-							</div>
-							
-							<button
-								onClick={() => openProfile(selectedThought)}
-								className="text-[10px] bg-white text-black hover:bg-cyan-400 px-5 py-2 uppercase font-bold tracking-widest transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-[0_0_15px_rgba(6,182,212,0.3)]"
-							>
-								PERFIL
-							</button>
-						</div>
-					</div>
-				</div>
-			)}
 		</div>
 	);
 };

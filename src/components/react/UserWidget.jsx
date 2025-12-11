@@ -10,6 +10,7 @@ import {
 	onAuthStateChanged,
 } from "firebase/auth";
 
+// ESTA ES LA CLAVE: Debe decir "export default"
 export default function UserWidget() {
 	const [user, setUser] = useState(null);
 
@@ -19,7 +20,6 @@ export default function UserWidget() {
 			isLoggedIn.set(!!currentUser);
 			mapKey.set(mapKey.get() + 1);
 
-			// AGREGADO: Debug para foto de perfil
 			if (currentUser && !currentUser.photoURL) {
 				console.warn(
 					"Firebase no proporcionó photoURL. Verifique que 'target-user.svg' exista en public/."
