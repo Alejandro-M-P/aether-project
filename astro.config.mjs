@@ -9,12 +9,7 @@ export default defineConfig({
 
   vite: {
     plugins: [tailwindcss()],
-    // FIX: Resuelve problemas de importación profunda de THREE.js 
-    // forzando el uso del módulo principal para evitar errores como "./webgpu"
-    resolve: {
-      alias: {
-        'three': 'three/build/three.module.js',
-      },
-    },
+    // Se elimina la configuración "resolve.alias" para "three"
+    // para que Vite/Node pueda usar la resolución estándar de módulos.
   }
 });
