@@ -26,7 +26,7 @@ const DEFAULT_CENTER = [20, 0];
 const DEFAULT_ZOOM = 2;
 const ZOOM_LEVEL_CITY_THRESHOLD = 4; // Umbral para cambiar de País a Ciudad/Pueblo
 
-// Fallback SVG para el marcador cuando no hay foto de perfil
+// Fallback SVG para el marcador cuando no hay foto de perfil (copiado de Islands.jsx)
 const DEFAULT_AVATAR_MARKER = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 8v4'/%3E%3Cpath d='M12 16h.01'/%3E%3C/svg%3E`;
 
 // Componente para rastrear el zoom (para filtrar la ubicación)
@@ -132,7 +132,7 @@ export const MapComponent = ({
 							key={p.id}
 							position={[lat, lon]}
 							icon={markerIcon}
-							// No hay eventHandlers para que el clic simple abra el Popup.
+							// El Popup funcionará si el CSS de los pointer-events está bien
 						>
 							<Popup>
 								{/* Contenido del Pop-up con el tamaño ajustado */}

@@ -21,67 +21,59 @@
 }
 
 /* ------------------------------------------------ */
-/* ESTILOS CUSTOMIZADOS PARA MARCADOR DE FOTO Y OVERLAY */
+/* ESTILOS CORREGIDOS PARA MARCADOR DE FOTO Y OVERLAY */
 /* ------------------------------------------------ */
 
-/* Elimina el fondo por defecto del L.divIcon */
+/* 1. Contenedor de Leaflet (L.divIcon) */
 .transparent-marker-icon {
 	background-color: transparent !important;
 	border: none !important;
 	box-shadow: none !important;
-	/* Permitir que los clics pasen al marcador de Leaflet subyacente. */
-	pointer-events: all;
+	/* CRÍTICO para el clic: Debe permitir que el puntero interactúe con el contenido. */
+	pointer-events: auto;
 }
 
+/* 2. Contenedor principal de la foto/overlay */
 .thought-marker-container {
 	position: relative;
 	width: 40px;
 	height: 40px;
-	/* Hacemos que el contenedor interno ignore clics para que Leaflet los maneje */
-	pointer-events: none;
+	/* Debe ser "auto" para que capture el evento hover */
+	pointer-events: auto;
 }
 
+/* 3. La imagen de perfil */
 .thought-marker-container img {
 	z-index: 2;
 	position: relative;
 	box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
-	pointer-events: all; /* Permitir clic en la imagen */
+	border: 2px solid; /* El color del borde lo pone Tailwind */
+	/* Debe ser "auto" para que el clic se propague al Leaflet Marker */
+	pointer-events: auto;
+	cursor: pointer;
+	transition: transform 0.2s;
 }
 
-/* Mensaje Flotante Animado (Overlay) */
+/* 4. Mensaje Flotante (Overlay) */
 .thought-message-overlay {
 	position: absolute;
 	top: -65px;
 	left: 50%;
-	/* Aplicamos la animación de movimiento al elemento interno (.message-bubble) */
-	transform: translateX(-50%);
+	/* Posición inicial fuera de vista con transformación */
+	transform: translateX(-50%) translateY(5px);
 	z-index: 10;
+	/* CRÍTICO: Debe ser NONE para que no bloquee el clic en la imagen */
 	pointer-events: none;
 	opacity: 0;
-	transition: opacity 0.3s;
+	/* Transición para el efecto de entrada/salida (la animación simple) */
+	transition: opacity 0.3s ease-out, transform 0.3s ease-out;
 	text-align: center;
 }
 
-/* Efecto de visualización y animación flotante al hacer hover */
+/* 5. Efecto de visualización al hacer hover (Pop-up animado) */
 .thought-marker-container:hover .thought-message-overlay {
 	opacity: 1;
-}
-
-/* El movimiento se aplica DENTRO del message-bubble */
-.thought-marker-container:hover .message-bubble {
-	animation: float-message 4s ease-in-out infinite;
-}
-
-@keyframes float-message {
-	0%,
-	100% {
-		transform: translateY(0);
-		opacity: 0.9;
-	}
-	50% {
-		transform: translateY(-8px); /* Solo mover verticalmente */
-		opacity: 1;
-	}
+	transform: translateX(-50%) translateY(0); /* Sube a la posición final */
 }
 
 .message-bubble {
@@ -89,12 +81,17 @@
 	min-width: 150px;
 	display: inline-block;
 	text-align: left;
+	/* Eliminamos la animación de "float-message" para evitar el movimiento constante */
 }
 
-/* Anillo de pulso (Reemplaza las clases de pulso anteriores) */
+/* ------------------------------------------------ */
+/* ESTILOS DE PULSO (Mantenidos) */
+/* ------------------------------------------------ */
+
+/* Anillo de pulso (Asegura que la posición sea correcta) */
 .pulse-ring {
 	position: absolute;
-	top: -2px; /* Ajustar para centrar sobre la imagen de 32px */
+	top: -2px;
 	left: -2px;
 	width: 32px;
 	height: 32px;
@@ -102,10 +99,10 @@
 	z-index: 1;
 }
 
-/* Modificar los keyframes existentes para que afecten al nuevo anillo/div */
+/* Keyframes (Mantenidos) */
 @keyframes pulse-green-ring {
 	0% {
-		box-shadow: 0 0 0 0 rgba(30, 200, 30, 0.4); /* Verde */
+		box-shadow: 0 0 0 0 rgba(30, 200, 30, 0.4);
 	}
 	70% {
 		box-shadow: 0 0 0 15px rgba(30, 200, 30, 0);
@@ -117,7 +114,7 @@
 
 @keyframes pulse-blue-ring {
 	0% {
-		box-shadow: 0 0 0 0 rgba(0, 191, 255, 0.4); /* Azul */
+		box-shadow: 0 0 0 0 rgba(0, 191, 255, 0.4);
 	}
 	70% {
 		box-shadow: 0 0 0 15px rgba(0, 191, 255, 0);
@@ -127,16 +124,13 @@
 	}
 }
 
-/* Aplicar la animación de pulso a la clase de anillo */
 .pulse-green-ring {
 	animation: pulse-green-ring 2s infinite;
 }
-
 .pulse-blue-ring {
 	animation: pulse-blue-ring 2s infinite;
 }
 
-/* Clases de utilidad antiguas que aún podrían usarse */
 .user-marker {
 	background-color: white !important;
 	border-radius: 50%;
