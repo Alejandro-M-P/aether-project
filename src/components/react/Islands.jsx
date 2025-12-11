@@ -11,7 +11,8 @@ import {
 } from "firebase/firestore";
 
 import { auth, db } from "../../firebase.js";
-import { searchQuery } from "../../store.js";
+import { searchQuery, isLoggedIn, draftMessage } from "../../store.js"; // <-- ACT: Importar stores
+import { useStore } from "@nanostores/react"; // NUEVO: Importar useStore
 import { X, MapPin } from "lucide-react";
 
 // 🚨 CRÍTICO: Carga dinámica para MapComponent.jsx
@@ -47,7 +48,8 @@ const distanceBetween = (loc1, loc2) => {
 };
 
 // 👤 AVATAR POR DEFECTO
-const DEFAULT_AVATAR = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 8v4'/%3E%3Cpath d='M12 16h.01'/%3E%3C/svg%3E`;
+// FIX: Usar el marcador de usuario como fallback más genérico
+const DEFAULT_AVATAR = "/target-user.svg";
 
 export const UniverseCanvas = () => {
 	const particlesRef = useRef([]);
@@ -60,6 +62,10 @@ export const UniverseCanvas = () => {
 	const [viewerLocation, setViewerLocation] = useState(null);
 	const [nearbyThoughtExists, setNearbyThoughtExists] = useState(false);
 	const [currentMapZoom, setCurrentMapZoom] = useState(2); // Estado para el zoom del mapa
+
+	// ACT: Leer estados de los stores
+	const $isLoggedIn = useStore(isLoggedIn);
+	const $draftMessage = useStore(draftMessage);
 
 	// Mantenemos openProfile como una función que se pasa al MapComponent
 	const openProfile = async (user) => {
@@ -87,7 +93,7 @@ export const UniverseCanvas = () => {
 		}
 	};
 
-	// Memorizar openProfile
+	// Memorizar openProfile para evitar re-renders innecesarios en MapComponent
 	const openProfileMemo = useMemo(() => openProfile, []);
 
 	// Función para actualizar el zoom del mapa (pasada al MapComponent)
@@ -232,12 +238,14 @@ export const UniverseCanvas = () => {
 					}
 				>
 					<MapComponent
+						key={$isLoggedIn.toString()} // <-- FIX 1: Fuerza la remounting del mapa en login/logout
 						messages={filteredMessages}
 						viewerLocation={viewerLocation}
 						nearbyThoughtExists={nearbyThoughtExists}
 						openProfile={openProfileMemo}
-						updateZoom={updateZoom} // Pasar la función de actualización de zoom
-						currentMapZoom={currentMapZoom} // Pasar el zoom actual
+						updateZoom={updateZoom}
+						currentMapZoom={currentMapZoom}
+						draftMessage={$draftMessage} // <-- ACT: Pasar el mensaje de borrador
 					/>
 				</React.Suspense>
 			</div>
@@ -256,7 +264,7 @@ export const UniverseCanvas = () => {
 						<div className="flex flex-col items-center mb-8">
 							<div className="relative">
 								<img
-									src={selectedProfile.photoURL || "/favicon.svg"}
+									src={selectedProfile.photoURL || DEFAULT_AVATAR} // <-- FIX: Usar DEFAULT_AVATAR como fallback
 									alt="Profile"
 									className="w-20 h-20 rounded-full border-2 border-zinc-800 object-cover"
 								/>

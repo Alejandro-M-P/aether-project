@@ -52,7 +52,42 @@ export const MapComponent = ({
 	openProfile,
 	updateZoom,
 	currentMapZoom,
+	draftMessage, // <-- NUEVO PROP
 }) => {
+	// NUEVO COMPONENTE: Marcador de Borrador (Burbuja de Texto)
+	const DraftMarker = () => {
+		// Renderizar solo si hay un mensaje de borrador y ubicación del visor
+		if (!draftMessage || !viewerLocation) return null;
+
+		// Limitar la longitud del mensaje para que la burbuja no sea demasiado larga
+		const displayMessage =
+			draftMessage.length > 25
+				? draftMessage.substring(0, 25) + "..."
+				: draftMessage;
+
+		// Crear un icono div para la burbuja de texto
+		// Se usa `className` para aplicar los estilos de CSS definidos en global.css
+		const draftIcon = L.divIcon({
+			className: "draft-message-icon-wrapper",
+			html: `
+                <div class="draft-message-bubble">
+                    <span class="block">${displayMessage}</span>
+                    <div class="draft-message-tail"></div>
+                </div>
+            `,
+			iconSize: [0, 0], // El tamaño es manejado por CSS
+			iconAnchor: [0, 0], // El anclaje se ajusta en CSS
+		});
+
+		// Renderizar el marcador en la ubicación del visor
+		return (
+			<Marker
+				position={[viewerLocation.lat, viewerLocation.lon]}
+				icon={draftIcon}
+			/>
+		);
+	};
+
 	return (
 		<MapContainer
 			center={DEFAULT_CENTER}
@@ -145,6 +180,9 @@ export const MapComponent = ({
 				}
 				return null;
 			})}
+
+			{/* NUEVO: Mostrar el marcador de borrador */}
+			<DraftMarker />
 
 			{/* Marcador de ubicación del visor */}
 			{viewerLocation && (

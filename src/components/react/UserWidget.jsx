@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 
+// 🚨 CORRECCIÓN IMPORTANTE: Subir dos niveles (../../)
 import { auth } from "../../firebase.js";
+import { isLoggedIn } from "../../store.js"; // NUEVO
 
 import {
 	GoogleAuthProvider,
@@ -15,6 +17,8 @@ export default function UserWidget() {
 	useEffect(() => {
 		const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
 			setUser(currentUser);
+			// ACT: Actualiza el store de sesión (true si hay usuario, false si es null)
+			isLoggedIn.set(!!currentUser);
 		});
 		return () => unsubscribe();
 	}, []);
@@ -40,7 +44,7 @@ export default function UserWidget() {
 				title="Cerrar sesión"
 			>
 				<img
-					src={user.photoURL}
+					src={user.photoURL || "/target-user.svg"} // <-- FIX: Fallback seguro para la imagen de perfil
 					alt={user.displayName}
 					className="w-6 h-6 rounded-full border border-white/20"
 				/>

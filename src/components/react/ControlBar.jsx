@@ -4,7 +4,7 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 import { db, auth } from "../../firebase.js";
 import { useStore } from "@nanostores/react";
-import { searchQuery } from "../../store.js";
+import { searchQuery, draftMessage } from "../../store.js"; // <-- ACT: Importar draftMessage
 
 // CONSTANTE para la privacidad: ~0.05 grados equivale a ~5.5 km cerca del ecuador
 const RANDOM_RADIUS_DEGREE = 0.05;
@@ -82,6 +82,20 @@ export default function ControlBar() {
 	const [cat, setCat] = useState("");
 	const [isSending, setIsSending] = useState(false);
 
+	// NUEVO: Sincronizar el estado de borrador con el store global
+	React.useEffect(() => {
+		if (open) {
+			draftMessage.set(msg);
+		} else {
+			// Limpia el mensaje al cerrar el modal o al enviarlo
+			draftMessage.set("");
+		}
+	}, [open, msg]);
+
+	const handleMsgChange = (e) => {
+		setMsg(e.target.value);
+	};
+
 	const send = async (e) => {
 		e.preventDefault();
 		if (!msg.trim() || isSending) return;
@@ -132,7 +146,7 @@ export default function ControlBar() {
 
 			setMsg("");
 			setCat("");
-			setOpen(false);
+			setOpen(false); // draftMessage se limpia gracias al useEffect de arriba
 		} catch (error) {
 			console.error("Error enviando:", error);
 		} finally {
@@ -191,7 +205,7 @@ export default function ControlBar() {
 								/>
 								<textarea
 									value={msg}
-									onChange={(e) => setMsg(e.target.value)}
+									onChange={handleMsgChange} // <-- ACT
 									className="bg-transparent text-white text-lg font-light text-center resize-none placeholder-white/20 focus:outline-none h-32 leading-relaxed"
 									placeholder="Escribe tu mensaje al vacío..."
 									maxLength={280}
