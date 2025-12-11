@@ -1,4 +1,3 @@
-// Archivo: src/components/react/Islands.jsx
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import { signInAnonymously } from "firebase/auth";
 import {
@@ -12,7 +11,7 @@ import {
 } from "firebase/firestore";
 
 import { auth, db } from "../../firebase.js";
-import { searchQuery, isLoggedIn, draftMessage } from "../../store.js";
+import { searchQuery, isLoggedIn, draftMessage, mapKey } from "../../store.js"; // <-- ACT: Importar mapKey
 import { useStore } from "@nanostores/react";
 import { X, MapPin } from "lucide-react";
 
@@ -66,6 +65,7 @@ export const UniverseCanvas = () => {
 	// ACT: Leer estados de los stores
 	const $isLoggedIn = useStore(isLoggedIn);
 	const $draftMessage = useStore(draftMessage);
+	const $mapKey = useStore(mapKey); // <-- NUEVO: Leer mapKey para el fix
 
 	// Mantenemos openProfile como una función que se pasa al MapComponent
 	const openProfile = async (user) => {
@@ -237,10 +237,10 @@ export const UniverseCanvas = () => {
 						</div>
 					}
 				>
-					{/* CRÍTICO: SOLO renderizar si el usuario está autenticado */}
+					{/* CRÍTICO: SOLO renderizar si hay usuario (logueado o anónimo) */}
 					{$isLoggedIn ? (
 						<MapComponent
-							key={$isLoggedIn.toString()}
+							key={$mapKey} // <-- FIX CRÍTICO: Usar el contador como key (Forzará un re-montado único)
 							messages={filteredMessages}
 							viewerLocation={viewerLocation}
 							nearbyThoughtExists={nearbyThoughtExists}

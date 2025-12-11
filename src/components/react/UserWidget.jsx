@@ -1,9 +1,8 @@
-// Archivo: src/components/react/UserWidget.jsx
 import React, { useEffect, useState } from "react";
 
 // 🚨 CORRECCIÓN IMPORTANTE: Subir dos niveles (../../)
 import { auth } from "../../firebase.js";
-import { isLoggedIn } from "../../store.js"; // NUEVO
+import { isLoggedIn, mapKey } from "../../store.js"; // <-- ACT: Importar mapKey
 
 import {
 	GoogleAuthProvider,
@@ -18,11 +17,16 @@ export default function UserWidget() {
 	useEffect(() => {
 		const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
 			setUser(currentUser);
-			// ACT: Actualiza el store de sesión (true si hay usuario, false si es null)
+			// ACT: Actualiza el store de sesión
 			isLoggedIn.set(!!currentUser);
+			mapKey.set(mapKey.get() + 1); // <-- FIX CRÍTICO: Incrementar el contador en CADA cambio de Auth
 		});
 		return () => unsubscribe();
 	}, []);
+	// ... (resto del componente sin cambios)
+	// ...
+	// ... (continúa)
+	// ...
 
 	const handleLogin = async () => {
 		const provider = new GoogleAuthProvider();
