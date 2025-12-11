@@ -4,11 +4,12 @@ import react from '@astrojs/react';
 
 // https://astro.build/config
 export default defineConfig({
-  // Solo dejamos la integración de React.
-  integrations: [react()],
+  integrations: [react()], 
 
-  // Eliminamos completamente el bloque 'vite'. 
-  // Esto resuelve el error de ERESOLVE y el de TS2322.
-  // Tailwind se activará automáticamente porque está instalado 
-  // y se importa en src/styles/global.css.
+  vite: {
+    // Mantenemos la única configuración que resuelve el problema original de three.js
+    ssr: {
+      noExternal: ['three', 'react-globe.gl', 'three-globe']
+    }
+  }
 });
