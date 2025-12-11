@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-// Asegúrate de instalar: npm install three react-globe.gl
+import * as THREE from "three";
 
-// --- GOOGLE MAPS TILES (Modo Satélite Puro) ---
+// --- TILES DE GOOGLE (SATÉLITE) ---
 const GOOGLE_TILES_URL = (x, y, z) => 
     `https://mt1.google.com/vt/lyrs=s&x=${x}&y=${y}&z=${z}`;
 
@@ -12,100 +12,113 @@ const CATEGORY_COLORS = {
     'General': 'text-cyan-400 bg-cyan-400/10 border-cyan-400/20',
 };
 
-export const MapComponent = ({ messages = [], openProfile }) => {
+// Renombrado a UniverseCanvas para coincidir con la importación en Astro
+export const UniverseCanvas = ({ messages = [], openProfile }) => {
     const globeEl = useRef();
     const [GlobePackage, setGlobePackage] = useState(null);
-    const [ThreePackage, setThreePackage] = useState(null);
-    
     const [selectedThoughtId, setSelectedThoughtId] = useState(null);
-    const [dimensions, setDimensions] = useState({ width: 800, height: 800 });
-    const [globeReady, setGlobeReady] = useState(false);
+    // Dimensiones iniciales dinámicas para asegurar el relleno de la pantalla
+    const [dimensions, setDimensions] = useState({ width: 0, height: 0 }); 
     const markersRef = useRef({});
 
-    // 1. CARGA
+    // 1. CARGA SEGURA Y RESIZE
     useEffect(() => {
         if (typeof window !== "undefined") {
-            Promise.all([import("react-globe.gl"), import("three")])
-                .then(([globeMod, threeMod]) => {
-                    setGlobePackage(() => globeMod.default);
-                    setThreePackage(threeMod);
-                });
+            // Seteamos dimensiones iniciales
+            setDimensions({ width: window.innerWidth, height: window.innerHeight });
+
+            // Importación dinámica de la librería 3D
+            import('react-globe.gl').then(mod => {
+                setGlobePackage(() => mod.default);
+            }).catch(err => console.error("Error cargando librería react-globe.gl:", err));
+
+            // Listener para redimensionar la ventana
+            const handleResize = () => {
+                setDimensions({ width: window.innerWidth, height: window.innerHeight });
+            };
+            window.addEventListener('resize', handleResize);
+            return () => window.removeEventListener('resize', handleResize);
         }
     }, []);
 
-    // 2. RESIZE
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-        const handleResize = () => setDimensions({ width: window.innerWidth, height: window.innerHeight });
-        window.addEventListener('resize', handleResize);
-        handleResize();
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
-
-    // 3. CONFIGURACIÓN TÉCNICA
-    useEffect(() => {
-        if (GlobePackage && ThreePackage && globeEl.current && !globeReady) {
-            setGlobeReady(true);
+    // 2. CONFIGURACIÓN VISUAL (Luces, Controles, etc.)
+    const handleGlobeReady = () => {
+        if (globeEl.current) {
             const globe = globeEl.current;
-            const THREE = ThreePackage;
             
+            // Configurar Renderer y Controles
             const renderer = globe.renderer();
             renderer.setPixelRatio(window.devicePixelRatio || 1); 
-            renderer.antialias = true;
-            renderer.shadowMap.enabled = false;
-
+            
             const controls = globe.controls();
-            controls.autoRotate = false; // ESTÁTICO
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 0.5;
             controls.enableZoom = true;
             controls.dampingFactor = 0.1;
-            controls.minDistance = globe.getGlobeRadius() * 1.001; 
-            controls.maxDistance = globe.getGlobeRadius() * 10;
+            controls.minDistance = globe.getGlobeRadius() * 1.01; 
 
-            // Iluminación Plana
-            globe.scene().children = globe.scene().children.filter(ch => ch.type !== 'DirectionalLight' && ch.type !== 'AmbientLight');
-            const ambientLight = new THREE.AmbientLight(0xffffff, 2.0); 
-            globe.scene().add(ambientLight);
-
-            globe.pointOfView({ altitude: 1.5, lat: 20, lng: 0 });
+            // Iluminación
+            const scene = globe.scene();
+            scene.children = scene.children.filter(ch => ch.type !== 'DirectionalLight' && ch.type !== 'AmbientLight');
+            const ambient = new THREE.AmbientLight(0xffffff, 1.5);
+            const directional = new THREE.DirectionalLight(0xffffff, 1);
+            directional.position.set(10, 10, 10);
+            scene.add(ambient, directional);
+            
+            // Vista inicial
+            globe.pointOfView({ altitude: 1.8, lat: 20, lng: 0 });
         }
-    }, [GlobePackage, ThreePackage, globeReady]);
+    };
 
+    // 3. DATOS A RENDERIZAR
     const mapData = useMemo(() => {
+        if (!messages) return [];
         return messages
             .filter(m => m.location?.lat && m.location?.lon)
             .map(m => ({ ...m, isSelected: m.id === selectedThoughtId }))
             .reverse(); 
     }, [messages, selectedThoughtId]);
 
-    if (!GlobePackage) return <div className="w-full h-full bg-[#0a0a0a]" />;
+    // Si la librería no cargó, muestra un placeholder de carga.
+    if (!GlobePackage) {
+        return <div className="w-full h-full flex items-center justify-center text-cyan-500 font-mono text-xs bg-[#0a0a0a]">INICIALIZANDO SATÉLITE...</div>;
+    }
+
     const Globe = GlobePackage;
 
     return (
-        <div className="relative w-full h-full bg-[#0a0a0a] cursor-move select-none">
+        <div className="relative w-full h-full bg-[#0a0a0a] cursor-move select-none overflow-hidden">
             <Globe
                 ref={globeEl}
                 width={dimensions.width}
                 height={dimensions.height}
                 globeTileEngineUrl={GOOGLE_TILES_URL}
                 globeImageUrl={null} 
-                backgroundColor="#0a0a0a"
+                backgroundColor="#0a0a0a" // El contenedor Astro tiene un fondo, pero este también ayuda.
                 atmosphereColor="#3a9efd"
-                atmosphereAltitude={0.05} 
-                htmlTransitionDuration={0}
-                animateIn={false}
+                atmosphereAltitude={0.15} 
+                onGlobeReady={handleGlobeReady}
+
+                // Puntos (Invisibles para interacción)
                 pointsData={mapData}
                 pointLat={d => d.location.lat}
                 pointLng={d => d.location.lon}
                 pointAltitude={0.001}
-                pointRadius={1}
+                pointRadius={2.5} 
                 pointColor={() => 'transparent'}
                 onPointClick={(d) => {
                     setSelectedThoughtId(d.id);
-                    globeEl.current.pointOfView({ lat: d.location.lat, lng: d.location.lon, altitude: 0.2 }, 800);
+                    if(globeEl.current) {
+                        globeEl.current.controls().autoRotate = false; // Detener rotación al seleccionar
+                        globeEl.current.pointOfView({ lat: d.location.lat, lng: d.location.lon, altitude: 0.3 }, 1000);
+                    }
                 }}
-                onGlobeClick={() => setSelectedThoughtId(null)}
+                onGlobeClick={() => {
+                    setSelectedThoughtId(null);
+                    if(globeEl.current) globeEl.current.controls().autoRotate = true; // Reanudar rotación
+                }}
 
-                // --- MARCADORES HTML ---
+                // Marcadores HTML (Popups)
                 htmlElementsData={mapData}
                 htmlLat={d => d.location.lat}
                 htmlLng={d => d.location.lon}
@@ -139,14 +152,12 @@ export const MapComponent = ({ messages = [], openProfile }) => {
                                 </div>
                                 <button class="js-profile-btn w-full py-3 bg-zinc-900 hover:bg-zinc-800 border-t border-zinc-800 text-[10px] font-bold text-white uppercase tracking-widest transition-colors cursor-pointer flex items-center justify-center gap-2 group">
                                     Ver Perfil 
-                                    <svg class="w-3 h-3 text-zinc-500 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                                 </button>
                                 <div class="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-zinc-950 border-r border-b border-zinc-800 rotate-45"></div>
                             </div>
 
                             <div class="js-icon-container cursor-pointer group relative hover:z-50" style="pointer-events: auto;">
                                 <div class="absolute inset-0 bg-cyan-500 rounded-full blur-md opacity-0 group-hover:opacity-50 transition-opacity duration-300 scale-150"></div>
-                                
                                 <div class="js-icon relative transition-transform duration-200 group-hover:-translate-y-1">
                                     <svg width="40" height="48" viewBox="0 0 40 48" fill="none" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-lg">
                                         <path d="M20 48C20 48 40 30.6 40 20C40 8.95431 31.0457 0 20 0C8.9543 0 0 8.95431 0 20C0 30.6 20 48 20 48Z" fill="#09090b" stroke="#06b6d4" stroke-width="2"/>
@@ -156,7 +167,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
                             </div>
                         `;
 
-                        // --- EVENT LISTENERS ---
+                        // Event Listeners (para clicks)
                         const stopProp = (e) => e.stopPropagation();
                         const iconContainer = wrapper.querySelector('.js-icon-container');
                         const popup = wrapper.querySelector('.js-popup');
@@ -167,23 +178,26 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 
                         iconContainer.addEventListener('click', (e) => {
                             e.stopPropagation();
-                            const data = wrapper.__data;
-                            if (data) {
-                                setSelectedThoughtId(data.id);
-                                globeEl.current.pointOfView({ lat: data.location.lat, lng: data.location.lon, altitude: 0.25 }, 1000);
+                            if (wrapper.__data) {
+                                setSelectedThoughtId(wrapper.__data.id);
+                                if(globeEl.current) {
+                                    globeEl.current.pointOfView({ lat: wrapper.__data.location.lat, lng: wrapper.__data.location.lon, altitude: 0.3 }, 1000);
+                                    globeEl.current.controls().autoRotate = false;
+                                }
                             }
                         });
 
-                        if(btn) {
+                        if(btn && openProfile) {
                             btn.addEventListener('click', (e) => {
                                 e.stopPropagation();
-                                if (wrapper.__data && openProfile) openProfile(wrapper.__data);
+                                if (wrapper.__data) openProfile(wrapper.__data);
                             });
                         }
 
                         markersRef.current[d.id] = wrapper;
                     }
 
+                    // Lógica de Activo/Inactivo (Necesaria en cada render)
                     const el = markersRef.current[d.id];
                     el.__data = d; 
                     const popupEl = el.querySelector('.js-popup');
@@ -193,14 +207,12 @@ export const MapComponent = ({ messages = [], openProfile }) => {
                     if (d.isSelected) {
                         el.style.zIndex = "1000";
                         popupEl.style.display = "block";
-                        // Pin activo: Borde blanco
                         iconPath.setAttribute('stroke', '#ffffff');
                         iconPath.setAttribute('stroke-width', '3');
                         iconCircle.setAttribute('fill', '#ffffff');
                     } else {
                         el.style.zIndex = "10";
                         popupEl.style.display = "none";
-                        // Pin normal: Borde cyan
                         iconPath.setAttribute('stroke', '#06b6d4');
                         iconPath.setAttribute('stroke-width', '2');
                         iconCircle.setAttribute('fill', '#06b6d4');

@@ -7,46 +7,65 @@ import '../styles/global.css';
 
 	<main class="relative z-10 w-full min-h-screen bg-black flex flex-col items-center justify-center p-6 select-none overflow-hidden">
 
-		<div class="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)]  pointer-events-none"></div>
+		{/* Fondo mejorado con gradiente radial profundo y malla animada */}
+		<div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-zinc-900 via-black to-black pointer-events-none"></div>
+		<div class="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_50%,#000_70%,transparent_100%)] pointer-events-none opacity-50"></div>
+		
+		{/* Efecto de resplandor central */}
+		<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-emerald-500/5 rounded-full blur-[120px] pointer-events-none"></div>
 
-		<div class="max-w-3xl w-full space-y-24 text-center relative z-20">
+		<div class="max-w-5xl w-full space-y-24 text-center relative z-20 flex flex-col items-center">
 
-			<header class="space-y-6 animate-in fade-in duration-1000 slide-in-from-bottom-10">
-				<h1 class="text-6xl md:text-9xl font-bold tracking-tighter text-white font-mono drop-shadow-[0_0_30px_rgba(255,255,255,0.1)]">
-					AETHER
-				</h1>
-				<p class="text-lg md:text-xl text-zinc-400 font-light tracking-wide max-w-xl mx-auto">
-					Donde los pensamientos se convierten en polvo de estrellas.
+			<header class="space-y-8 animate-in fade-in zoom-in duration-1000 slide-in-from-bottom-10">
+				<div class="inline-block relative">
+					<h1 class="text-7xl md:text-9xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/50 font-mono drop-shadow-[0_0_50px_rgba(255,255,255,0.2)]">
+						AETHER
+					</h1>
+					<div class="absolute -top-10 -right-10 w-20 h-20 border-t border-r border-white/20 rounded-tr-3xl"></div>
+					<div class="absolute -bottom-10 -left-10 w-20 h-20 border-b border-l border-white/20 rounded-bl-3xl"></div>
+				</div>
+				
+				<p class="text-lg md:text-xl text-zinc-400 font-light tracking-wide max-w-xl mx-auto leading-relaxed">
+					Donde los pensamientos se convierten en <span class="text-emerald-400/80">polvo de estrellas</span>.
 				</p>
 			</header>
 
-			<div class="grid grid-cols-1 md:grid-cols-3 gap-8 text-left animate-in fade-in duration-1000 delay-300 slide-in-from-bottom-10 fill-mode-backwards">
+			<div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-left w-full animate-in fade-in duration-1000 delay-300 slide-in-from-bottom-10 fill-mode-backwards">
 
-				<div class="space-y-3 p-6 border border-zinc-800/50 bg-zinc-900/20 rounded-xl hover:border-zinc-700 transition-colors group">
-					<div class="w-10 h-10 bg-zinc-800 rounded-lg flex items-center justify-center text-white mb-2 group-hover:bg-zinc-700 transition-colors">
-						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+				{/* Tarjeta 1 */}
+				<div class="group relative p-8 border border-white/5 bg-zinc-900/30 backdrop-blur-sm rounded-2xl hover:bg-zinc-900/50 transition-all hover:border-white/10 hover:shadow-2xl hover:shadow-emerald-900/10 hover:-translate-y-1">
+					<div class="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl pointer-events-none"></div>
+					<div class="w-12 h-12 bg-zinc-800/50 rounded-xl flex items-center justify-center text-emerald-400 mb-6 group-hover:scale-110 transition-transform ring-1 ring-white/5">
+						<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
 					</div>
-					<h3 class="text-white font-mono uppercase tracking-wider text-sm">Libertad sin Juicios</h3>
+					<h3 class="text-white font-mono uppercase tracking-widest text-xs mb-3 text-emerald-500/80">Anonimato Puro</h3>
+					<h4 class="text-white text-lg font-bold mb-2">Libertad sin Juicios</h4>
 					<p class="text-zinc-500 text-sm leading-relaxed">
-						Expresa lo que sientes sin miedo. Aquí no hay perfiles ni historial, solo tu mensaje puro y anónimo.
+						Expresa lo que sientes sin miedo. Aquí no hay perfiles persistentes ni historial, solo tu mensaje puro flotando en el vacío.
 					</p>
 				</div>
 
-				<div class="space-y-3 p-6 border border-zinc-800/50 bg-zinc-900/20 rounded-xl hover:border-zinc-700 transition-colors group">
-					<div class="w-10 h-10 bg-zinc-800 rounded-lg flex items-center justify-center text-white mb-2 group-hover:bg-zinc-700 transition-colors">
-						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/></svg>
+				{/* Tarjeta 2 */}
+				<div class="group relative p-8 border border-white/5 bg-zinc-900/30 backdrop-blur-sm rounded-2xl hover:bg-zinc-900/50 transition-all hover:border-white/10 hover:shadow-2xl hover:shadow-emerald-900/10 hover:-translate-y-1">
+					<div class="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl pointer-events-none"></div>
+					<div class="w-12 h-12 bg-zinc-800/50 rounded-xl flex items-center justify-center text-emerald-400 mb-6 group-hover:scale-110 transition-transform ring-1 ring-white/5">
+						<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/></svg>
 					</div>
-					<h3 class="text-white font-mono uppercase tracking-wider text-sm">Desahogo Instantáneo</h3>
+					<h3 class="text-white font-mono uppercase tracking-widest text-xs mb-3 text-emerald-500/80">Efímero</h3>
+					<h4 class="text-white text-lg font-bold mb-2">Desahogo Instantáneo</h4>
 					<p class="text-zinc-500 text-sm leading-relaxed">
-						Libera esa carga mental. Tus palabras se desvanecen en el tiempo, perfecto para soltar y seguir adelante.
+						Libera esa carga mental. Tus palabras se desvanecen en el tiempo (60s), perfecto para soltar y seguir adelante.
 					</p>
 				</div>
 
-				<div class="space-y-3 p-6 border border-zinc-800/50 bg-zinc-900/20 rounded-xl hover:border-zinc-700 transition-colors group">
-					<div class="w-10 h-10 bg-zinc-800 rounded-lg flex items-center justify-center text-white mb-2 group-hover:bg-zinc-700 transition-colors">
-						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+				{/* Tarjeta 3 */}
+				<div class="group relative p-8 border border-white/5 bg-zinc-900/30 backdrop-blur-sm rounded-2xl hover:bg-zinc-900/50 transition-all hover:border-white/10 hover:shadow-2xl hover:shadow-emerald-900/10 hover:-translate-y-1">
+					<div class="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl pointer-events-none"></div>
+					<div class="w-12 h-12 bg-zinc-800/50 rounded-xl flex items-center justify-center text-emerald-400 mb-6 group-hover:scale-110 transition-transform ring-1 ring-white/5">
+						<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
 					</div>
-					<h3 class="text-white font-mono uppercase tracking-wider text-sm">Escucha Activa</h3>
+					<h3 class="text-white font-mono uppercase tracking-widest text-xs mb-3 text-emerald-500/80">Conexión</h3>
+					<h4 class="text-white text-lg font-bold mb-2">Escucha Activa</h4>
 					<p class="text-zinc-500 text-sm leading-relaxed">
 						Sintoniza con otros humanos. Lee lo que el mundo está sintiendo o pensando en este preciso instante.
 					</p>
@@ -54,13 +73,14 @@ import '../styles/global.css';
 
 			</div>
 
-			<div class="animate-in fade-in duration-1000 delay-500 slide-in-from-bottom-10 fill-mode-backwards">
+			<div class="animate-in fade-in duration-1000 delay-500 slide-in-from-bottom-10 fill-mode-backwards pb-10">
 				<a
 					href="/app"
-					class="group relative inline-flex items-center gap-4 px-12 py-4 bg-white text-black font-mono font-bold uppercase tracking-[0.2em] hover:bg-zinc-200 transition-all active:scale-95"
+					class="group relative inline-flex items-center gap-4 px-16 py-5 bg-white text-black font-mono font-bold uppercase tracking-[0.2em] hover:bg-zinc-200 transition-all active:scale-95 rounded-full overflow-hidden"
 				>
-					Iniciar Secuencia
-					<svg class="w-4 h-4 transition-transform group-hover:translate-x-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+					<span class="relative z-10">Iniciar Secuencia</span>
+					<div class="absolute inset-0 bg-gradient-to-r from-emerald-400/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+					<svg class="w-5 h-5 transition-transform group-hover:translate-x-1 relative z-10" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
 				</a>
 			</div>
 
