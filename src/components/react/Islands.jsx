@@ -69,7 +69,7 @@ export const UniverseCanvas = () => {
 			);
 			const querySnapshot = await getDocs(q);
 			const posts = [];
-			querySnapshot.forEach((doc) => posts.push(doc.data()));
+			querySnapshot.forEach((doc) => posts.push({id: doc.id, ...doc.data()}));
 			setProfilePosts(posts);
 		} catch (error) {
 			console.error("Error cargando perfil", error);
@@ -172,10 +172,10 @@ export const UniverseCanvas = () => {
 			{selectedProfile && (
 				// MODAL PERFIL (Minimalista)
 				<div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
-					<div className="bg-black border border-zinc-800 p-6 w-full max-w-md relative shadow-2xl">
+					<div className="bg-black/95 border border-cyan-500/20 p-6 w-full max-w-md relative shadow-[0_0_80px_rgba(6,182,212,0.2)] backdrop-blur-md ring-1 ring-white/5">
 						<button
 							onClick={() => setSelectedProfile(null)}
-							className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors"
+							className="absolute top-4 right-4 text-zinc-500 hover:text-cyan-400 transition-colors hover:drop-shadow-[0_0_5px_rgba(6,182,212,1)]"
 						>
 							<X size={20} />
 						</button>
@@ -185,13 +185,13 @@ export const UniverseCanvas = () => {
 								<img
 									src={selectedProfile.photoURL || "/favicon.svg"}
 									alt="Profile"
-									className="w-20 h-20 rounded-full border-2 border-zinc-800 object-cover grayscale"
+									className="w-20 h-20 rounded-full border-2 border-cyan-400 object-cover bg-black"
 								/>
 							</div>
-							<h2 className="text-white font-mono text-xl mt-4 tracking-widest uppercase">
+							<h2 className="text-white font-mono text-xl mt-4 tracking-widest uppercase drop-shadow-[0_0_5px_rgba(255,255,255,0.2)]">
 								{selectedProfile.displayName || "Viajero"}
 							</h2>
-							<p className="text-zinc-600 text-[10px] font-mono uppercase tracking-widest mt-1">
+							<p className="text-cyan-400 text-[10px] font-mono uppercase tracking-widest mt-1">
 								Historial de Transmisiones
 							</p>
 						</div>
@@ -199,26 +199,27 @@ export const UniverseCanvas = () => {
 						<div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
 							{loadingProfile ? (
 								<div className="text-center py-8">
-									<span className="text-zinc-600 font-mono text-xs animate-pulse">
+									<span className="text-cyan-500 font-mono text-xs animate-pulse">
 										Descifrando datos...
 									</span>
 								</div>
 							) : profilePosts.length > 0 ? (
-								profilePosts.map((post, idx) => (
+								profilePosts.map((post) => (
 									<div
-										key={idx}
-										className="bg-zinc-950 p-4 border border-zinc-900 hover:border-zinc-700 transition-colors"
+										key={post.id}
+										className="bg-zinc-950 p-4 border border-zinc-900 hover:border-emerald-700/50 transition-all duration-300"
 									>
-										<p className="text-zinc-400 text-sm font-light leading-relaxed italic">
+										<p className="text-zinc-400 text-sm font-light leading-relaxed italic border-l border-zinc-700 pl-3">
 											"{post.message}"
 										</p>
 										<div className="flex justify-end mt-3 items-center gap-2">
 											{post.countryName && (
-												<span className="text-[10px] text-zinc-600 font-mono uppercase">
+												<span className="text-[10px] text-zinc-600 font-mono uppercase flex items-center">
+													<MapPin size={10} className="mr-1 text-zinc-700"/>
 													{post.cityName || post.countryName}
 												</span>
 											)}
-											<span className="text-[10px] text-emerald-600 font-mono uppercase border border-emerald-900/30 px-2 py-0.5">
+											<span className="text-[10px] text-emerald-400 font-mono uppercase border border-emerald-900/30 px-2 py-0.5 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
 												{post.category}
 											</span>
 										</div>

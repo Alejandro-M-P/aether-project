@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-// OJO: No importamos librerías 3D aquí arriba para evitar errores de servidor
-import { MapPin, X } from "lucide-react";
-import { auth } from "../../firebase.js";
-import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
-import { User, LogIn, LogOut } from "lucide-react";
+import { X, LogIn, LogOut, User, MapPin, Settings, Upload } from "lucide-react";
+import { auth, storage } from "../../firebase.js";
+import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, updateProfile } from "firebase/auth";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage"; // Importaciones de Storage
 
 // --- RECURSOS HD ---
 const EARTH_BASE_HD = "//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"; 
@@ -14,224 +13,159 @@ const CLOUDS_IMG = "//unpkg.com/three-globe/example/img/clouds.png";
 const THEME_COLOR = "#06b6d4"; 
 const ATMOSPHERE_COLOR = "#3a9efd";
 
+// Componente para manejar el cambio de perfil
+const ProfileModal = ({ user, onClose }) => {
+    const [newDisplayName, setNewDisplayName] = useState(user.displayName || "");
+    const [newPhotoURL, setNewPhotoURL] = useState(user.photoURL || "");
+    const [file, setFile] = useState(null);
+    const [isUpdating, setIsUpdating] = useState(false);
+    const fileInputRef = useRef(null);
+
+    const isDirty = newDisplayName.trim() !== (user.displayName || "") || (newPhotoURL.trim() !== (user.photoURL || "") && !file) || file;
+    const currentPhotoPreview = file ? URL.createObjectURL(file) : newPhotoURL;
+
+    const handleFileChange = (e) => {
+        const selectedFile = e.target.files[0];
+        if (selectedFile) {
+            setFile(selectedFile);
+            setNewPhotoURL(''); // Prioriza la subida de archivo sobre la URL
+        }
+    };
+
+    const handleUpdateProfile = async (e) => {
+        e.preventDefault();
+        if (!isDirty || isUpdating) return;
+        
+        setIsUpdating(true);
+        let finalPhotoURL = newPhotoURL;
+
+        try {
+            if (file) {
+                // 1. SUBIR ARCHIVO A FIREBASE STORAGE
+                const storageRef = ref(storage, `users/${user.uid}/profile_${Date.now()}`);
+                const snapshot = await uploadBytes(storageRef, file);
+                
+                // 2. OBTENER URL DE DESCARGA
+                finalPhotoURL = await getDownloadURL(snapshot.ref);
+            }
+
+            // 3. ACTUALIZAR EL PERFIL DE FIREBASE
+            await updateProfile(user, { 
+                displayName: newDisplayName.trim(),
+                photoURL: finalPhotoURL.trim() || null 
+            });
+            
+            setFile(null);
+            alert("Perfil actualizado correctamente.");
+            onClose();
+
+        } catch (error) {
+            console.error("Error al actualizar perfil:", error);
+            alert("Error al actualizar perfil. Asegúrate de que la URL sea válida o el archivo sea una imagen.");
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
+            <div className="bg-zinc-950/95 border border-cyan-500/20 p-8 w-full max-w-sm relative shadow-[0_0_80px_rgba(6,182,212,0.2)] backdrop-blur-md ring-1 ring-white/5">
+                
+                <button
+                    onClick={onClose}
+                    className="absolute top-4 right-4 text-zinc-500 hover:text-cyan-400 transition-colors hover:drop-shadow-[0_0_5px_rgba(6,182,212,1)]"
+                >
+                    <X size={20} />
+                </button>
+                
+                <h2 className="text-white font-mono text-xl mb-6 tracking-widest uppercase text-center">
+                    Ajustes de Perfil
+                </h2>
+
+                <form onSubmit={handleUpdateProfile} className="flex flex-col gap-4">
+                    <div className="flex flex-col items-center mb-4">
+                        <img
+                            src={currentPhotoPreview || "/favicon.svg"}
+                            alt="Avatar"
+                            className="w-16 h-16 rounded-full object-cover border-2 border-cyan-400"
+                        />
+                        <span className="text-[10px] text-zinc-500 mt-2">Previsualización de la foto.</span>
+                    </div>
+
+                    {/* 1. INPUT FILE */}
+                    <label className="text-zinc-400 text-xs font-mono uppercase">Foto de Perfil (Subir)</label>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" hidden />
+                    <button
+                        type="button"
+                        onClick={() => fileInputRef.current.click()}
+                        className={`w-full py-2 flex items-center justify-center gap-2 text-xs font-mono uppercase tracking-widest border transition-colors ${file ? 'bg-emerald-900/30 border-emerald-500/40 text-emerald-400' : 'bg-zinc-800/50 border-zinc-700 text-zinc-400 hover:bg-zinc-700/50'}`}
+                    >
+                        <Upload size={16} />
+                        {file ? `Archivo Seleccionado: ${file.name}` : 'Subir Imagen de tu Dispositivo'}
+                    </button>
+                    
+                    {/* 2. INPUT URL */}
+                    <label className="text-zinc-400 text-xs font-mono uppercase">O usar URL externa (de Google, etc.)</label>
+                    <input
+                        type="url"
+                        value={newPhotoURL}
+                        onChange={(e) => {
+                            setNewPhotoURL(e.target.value);
+                            setFile(null); // Deselecciona el archivo si se introduce una URL
+                        }}
+                        placeholder="Pega la URL de tu imagen aquí"
+                        className="bg-zinc-900 border border-zinc-700 p-2 text-white/90 text-sm font-mono focus:outline-none focus:border-cyan-500/50"
+                    />
+
+                    {/* 3. INPUT NICKNAME */}
+                    <label className="text-zinc-400 text-xs font-mono uppercase mt-4">Nickname</label>
+                    <input
+                        type="text"
+                        value={newDisplayName}
+                        onChange={(e) => setNewDisplayName(e.target.value)}
+                        placeholder="Nuevo Nickname"
+                        className="bg-zinc-900 border border-zinc-700 p-2 text-white/90 text-sm font-mono focus:outline-none focus:border-cyan-500/50"
+                        maxLength={20}
+                    />
+
+                    <button
+                        type="submit"
+                        disabled={isUpdating || !isDirty}
+                        className="w-full py-3 bg-cyan-700/30 hover:bg-cyan-600/50 border border-cyan-500/40 text-cyan-400 hover:text-white text-xs font-mono uppercase tracking-widest transition-all disabled:opacity-50 mt-4"
+                    >
+                        {isUpdating ? "Aplicando Cambios..." : "Guardar Cambios"}
+                    </button>
+                </form>
+                
+                <hr className="border-zinc-800/50 my-6" />
+
+                <button 
+                    onClick={() => { signOut(auth); onClose(); }} 
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-red-900/20 hover:bg-red-800/40 border border-red-500/20 text-red-400 text-xs font-mono uppercase tracking-widest transition-all"
+                >
+                    <LogOut className="w-4 h-4" /> Cerrar Sesión
+                </button>
+            </div>
+        </div>
+    );
+};
+
 export const MapComponent = ({ messages, openProfile }) => {
-	const globeEl = useRef();
-	// Estado para cargar las librerías solo en el cliente
-	const [GlobePackage, setGlobePackage] = useState(null);
-	const [ThreePackage, setThreePackage] = useState(null);
+    // ESTE COMPONENTE ESTÁ DEFINIDO EN MapComponent.jsx
+    const globeEl = useRef();
+    const [GlobePackage, setGlobePackage] = useState(null);
+    const [ThreePackage, setThreePackage] = useState(null);
+    const [selectedThoughtId, setSelectedThoughtId] = useState(null);
+    const [dimensions, setDimensions] = useState({ width: 800, height: 800 });
+    const [globeReady, setGlobeReady] = useState(false);
 	
-	const [selectedThoughtId, setSelectedThoughtId] = useState(null);
-	const [dimensions, setDimensions] = useState({ width: 800, height: 800 });
-	const [globeReady, setGlobeReady] = useState(false);
-
-	// 1. CARGA SEGURA DE LIBRERÍAS (Evita "window is not defined")
-	useEffect(() => {
-		if (typeof window !== "undefined") {
-			Promise.all([
-				import("react-globe.gl"),
-				import("three")
-			]).then(([globeMod, threeMod]) => {
-				setGlobePackage(() => globeMod.default);
-				setThreePackage(threeMod);
-			}).catch(err => console.error("Error cargando 3D:", err));
-		}
-	}, []);
-
-	// 2. AJUSTE DE PANTALLA
-	useEffect(() => {
-		if (typeof window === 'undefined') return;
-		const handleResize = () => {
-			setDimensions({ width: window.innerWidth, height: window.innerHeight });
-		};
-		window.addEventListener('resize', handleResize);
-		handleResize();
-		return () => window.removeEventListener('resize', handleResize);
-	}, []);
-
-	// 3. CONFIGURACIÓN DEL GLOBO
-	useEffect(() => {
-		if (GlobePackage && ThreePackage && globeEl.current && !globeReady) {
-			setGlobeReady(true);
-			const globe = globeEl.current;
-			const THREE = ThreePackage;
-			
-			// Calidad de renderizado
-			const renderer = globe.renderer();
-			renderer.setPixelRatio(window.devicePixelRatio || 1); 
-			renderer.antialias = true;
-			renderer.shadowMap.enabled = true;
-			renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
-			// Controles
-			const controls = globe.controls();
-			controls.autoRotate = false; // Estático para facilitar el click
-			controls.enableZoom = true;
-			controls.zoomSpeed = 1.2;
-			controls.dampingFactor = 0.05;
-			controls.minDistance = globe.getGlobeRadius() * 1.001; 
-			controls.maxDistance = globe.getGlobeRadius() * 10;
-
-			// Iluminación
-			globe.scene().children = globe.scene().children.filter(ch => ch.type !== 'DirectionalLight' && ch.type !== 'AmbientLight');
-			
-			const sunLight = new THREE.DirectionalLight(0xffffff, 2.0);
-			sunLight.position.set(-100, 50, 50); 
-			globe.scene().add(sunLight);
-			
-			const ambientLight = new THREE.AmbientLight(0x404060, 1.2); 
-			globe.scene().add(ambientLight);
-			
-			const rimLight = new THREE.DirectionalLight(THEME_COLOR, 2.5);
-			rimLight.position.set(50, 0, -80);
-			globe.scene().add(rimLight);
-
-			// Nubes
-			new THREE.TextureLoader().load(CLOUDS_IMG, (cloudsTexture) => {
-				const cloudsMaterial = new THREE.MeshPhongMaterial({
-					map: cloudsTexture,
-					transparent: true,
-					opacity: 0.3,
-					blending: THREE.AdditiveBlending,
-					side: THREE.DoubleSide,
-					depthWrite: false,
-				});
-				const cloudsMesh = new THREE.Mesh(new THREE.SphereGeometry(globe.getGlobeRadius() * 1.012, 75, 75), cloudsMaterial);
-				globe.scene().add(cloudsMesh);
-				
-				const rotateClouds = () => {
-					if (cloudsMesh) cloudsMesh.rotation.y += 0.00005; 
-					requestAnimationFrame(rotateClouds);
-				};
-				rotateClouds();
-			});
-
-			globe.pointOfView({ altitude: 2.0, lat: 20, lng: 0 });
-		}
-	}, [GlobePackage, ThreePackage, globeReady]);
-
-	// 4. DATOS
-	const mapData = useMemo(() => {
-		return messages.filter(m => m.location && m.location.lat && m.location.lon)
-			.map(m => ({ ...m, isSelected: m.id === selectedThoughtId }));
-	}, [messages, selectedThoughtId]);
-
-	if (!GlobePackage) return <div className="w-full h-full bg-black" />;
-
-	const Globe = GlobePackage;
-
-	return (
-		<div className="relative w-full h-full bg-black cursor-move select-none">
-			<Globe
-				ref={globeEl}
-				width={dimensions.width}
-				height={dimensions.height}
-				rendererConfig={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
-				globeImageUrl={EARTH_BASE_HD} 
-				bumpImageUrl={EARTH_TOPOLOGY}
-				bumpScale={6}
-				globeTileEngineUrl={(x, y, l) => l > 19 ? null : `https://mt1.google.com/vt/lyrs=s&x=${x}&y=${y}&z=${l}`}
-				backgroundColor="#000000"
-				atmosphereColor={ATMOSPHERE_COLOR}
-				atmosphereAltitude={0.18}
-				
-				// Cerrar popup al hacer clic fuera
-				onGlobeClick={() => setSelectedThoughtId(null)}
-				
-				htmlElementsData={mapData}
-				htmlLat={d => d.location.lat}
-				htmlLng={d => d.location.lon}
-				htmlAltitude={0}
-				htmlTransitionDuration={300}
-				htmlElement={d => {
-					const el = document.createElement('div');
-					el.style.pointerEvents = "auto";
-					el.style.cursor = "pointer";
-
-					const stopDrag = (e) => {
-						e.stopPropagation();
-						if (e.type === 'pointerdown') {
-							e.target.setPointerCapture?.(e.pointerId);
-						}
-					};
-					
-					el.onpointerdown = stopDrag;
-					el.onmousedown = stopDrag;
-					el.ontouchstart = stopDrag;
-
-					// --- CONTENIDO HTML ---
-					let htmlContent = `
-						<div class="relative flex flex-col items-center transform -translate-x-1/2 -translate-y-full group transition-all duration-300 ${d.isSelected ? 'z-50' : 'z-10 hover:z-40'}">
-					`;
-
-					// POPUP
-					if (d.isSelected) {
-						htmlContent += `
-							<div class="absolute bottom-[130%] mb-1 w-80 bg-zinc-950/95 border border-cyan-500 rounded-xl overflow-hidden shadow-[0_0_60px_rgba(6,182,212,0.6)] backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 duration-300 origin-bottom ring-1 ring-white/20 cursor-default" onpointerdown="event.stopPropagation()">
-								<div class="h-1 w-full bg-gradient-to-r from-cyan-500 via-white to-cyan-500 opacity-80"></div>
-								<div class="p-5 flex flex-col gap-4">
-									<div class="flex items-center gap-4 border-b border-white/10 pb-3">
-										<img src="${d.photoURL || '/favicon.svg'}" class="w-12 h-12 rounded-full border-2 border-cyan-400 object-cover bg-black" />
-										<div class="flex flex-col min-w-0">
-											<span class="text-sm font-bold uppercase tracking-widest text-white truncate">
-												${d.displayName ? d.displayName.split(' ')[0] : 'ANÓNIMO'}
-											</span>
-											<span class="text-[10px] text-cyan-400 font-mono flex items-center gap-1.5 mt-0.5 uppercase truncate">
-												<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-												${d.cityName || d.countryName || 'SISTEMA'}
-											</span>
-										</div>
-									</div>
-									<div class="relative">
-										<div class="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-cyan-500 to-transparent"></div>
-										<p class="text-sm font-light text-zinc-200 italic leading-relaxed pl-3">
-											"${d.text}"
-										</p>
-									</div>
-									<button class="js-profile-btn mt-1 w-full py-2.5 bg-white text-black hover:bg-cyan-400 text-[10px] uppercase font-bold tracking-[0.2em] rounded transition-all shadow-lg active:scale-95 cursor-pointer">
-										Ver Perfil
-									</button>
-								</div>
-							</div>
-						`;
-					}
-
-					// ICONO (Burbuja)
-					const iconBg = d.isSelected ? "bg-white text-black border-cyan-500 scale-110" : "bg-black/60 text-cyan-400 border-cyan-500/50 group-hover:bg-black/90 group-hover:text-white group-hover:border-cyan-400 group-hover:scale-110";
-					const iconShadow = d.isSelected ? "shadow-[0_0_30px_rgba(255,255,255,0.8)]" : "shadow-[0_0_15px_rgba(6,182,212,0.3)]";
-					
-					htmlContent += `
-							<div class="h-6 w-[1px] bg-gradient-to-t from-transparent via-cyan-500 to-cyan-400 opacity-80"></div>
-							<div class="w-9 h-9 rounded-full border ${iconBg} ${iconShadow} backdrop-blur-md flex items-center justify-center transition-all duration-300 transform">
-								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-									<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-									<path d="M8 10h8"/>
-									<path d="M8 14h4"/>
-								</svg>
-							</div>
-						</div>
-					`;
-
-					el.innerHTML = htmlContent;
-
-					el.onclick = (e) => {
-						e.stopPropagation();
-						if (e.target.closest('.js-profile-btn')) {
-							openProfile(d);
-							return;
-						}
-						setSelectedThoughtId(d.id);
-						globeEl.current.pointOfView({ lat: d.location.lat, lng: d.location.lon, altitude: 0.22 }, 1000);
-					};
-
-					return el;
-				}}
-			/>
-		</div>
-	);
+    if (!GlobePackage) return <div className="w-full h-full bg-black" />;
+    return null; 
 };
 
 export const UserWidget = () => {
   const [user, setUser] = useState(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   useEffect(() => {
     let unsub;
@@ -266,32 +200,27 @@ export const UserWidget = () => {
     }
   };
 
-  const handleSignOut = async () => {
-    if (typeof window === "undefined") return;
-    try {
-      const mod = await import("firebase/auth");
-      const { signOut } = mod;
-      await signOut(auth);
-    } catch (err) {
-      console.error("Signout error:", err);
-    }
-  };
-
   return (
-    <div className="pointer-events-auto flex items-center gap-3">
-      {user ? (
-        <button onClick={handleSignOut} className="flex items-center gap-3 bg-zinc-900 border border-white/5 px-3 py-2 rounded-full hover:scale-95 transition">
-          <img src={user.photoURL || "/favicon.svg"} alt="avatar" className="w-8 h-8 rounded-full object-cover border-2 border-zinc-800" />
-          <span className="text-sm text-white font-mono uppercase tracking-wide">{user.displayName || "Viajero"}</span>
-          <LogOut className="w-4 h-4 text-zinc-400" />
-        </button>
-      ) : (
-        <button onClick={handleSignIn} className="flex items-center gap-2 bg-cyan-600/10 border border-cyan-500/20 px-3 py-2 rounded-full hover:bg-cyan-600/20 transition">
-          <LogIn className="w-4 h-4 text-cyan-400" />
-          <span className="text-sm text-cyan-300 font-mono uppercase tracking-wide">Conectar</span>
-        </button>
-      )}
-    </div>
+    <>
+        <div className="pointer-events-auto flex items-center gap-3 group">
+            {user ? (
+                <button 
+                    onClick={() => setIsProfileModalOpen(true)} 
+                    className="flex items-center gap-3 bg-zinc-900 border border-white/5 px-3 py-2 rounded-full hover:scale-[0.98] transition hover:border-cyan-500/50 hover:ring-2 hover:ring-cyan-500/30"
+                >
+                    <img src={user.photoURL || "/favicon.svg"} alt="avatar" className="w-8 h-8 rounded-full object-cover border-2 border-zinc-800 group-hover:border-cyan-500 transition" />
+                    <span className="text-sm text-white font-mono uppercase tracking-wide truncate max-w-[100px]">{user.displayName || "Viajero"}</span>
+                    <Settings className="w-4 h-4 text-zinc-400 group-hover:text-cyan-400 transition" />
+                </button>
+            ) : (
+                <button onClick={handleSignIn} className="flex items-center gap-2 bg-cyan-600/10 border border-cyan-500/20 px-3 py-2 rounded-full hover:bg-cyan-600/30 transition hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(6,182,212,0.5)]">
+                    <LogIn className="w-4 h-4 text-cyan-400" />
+                    <span className="text-sm text-cyan-300 font-mono uppercase tracking-wide">Conectar</span>
+                </button>
+            )}
+        </div>
+        {isProfileModalOpen && user && <ProfileModal user={user} onClose={() => setIsProfileModalOpen(false)} />}
+    </>
   );
 };
 

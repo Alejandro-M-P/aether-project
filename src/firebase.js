@@ -1,14 +1,16 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
+// Lee los valores de las variables de entorno (PUBLIC_)
 const firebaseConfig = {
-    apiKey: "AIzaSyCqT7j462Ui4QVogup6RGym-g2iHHer4qE",
-    authDomain: "aether-alejandro-9b32b.firebaseapp.com",
-    projectId: "aether-alejandro-9b32b",
-    storageBucket: "aether-alejandro-9b32b.firebasestorage.app",
-    messagingSenderId: "183118372728",
-    appId: "1:183118372728:web:751c92bb7cd8f55857728d",
+    apiKey: import.meta.env.PUBLIC_FIREBASE_API_KEY,
+    authDomain: import.meta.env.PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.PUBLIC_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.PUBLIC_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.PUBLIC_FIREBASE_APP_ID,
 };
 
 
@@ -16,3 +18,4 @@ const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const storage = getStorage(app); // Exporta el servicio de Storage
