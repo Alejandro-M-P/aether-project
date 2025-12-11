@@ -130,7 +130,7 @@ export const UniverseCanvas = () => {
 		const q = query(
 			collection(db, "thoughts"),
 			orderBy("timestamp", "desc"),
-			limit(60)
+			limit(500) // [CORRECCIÓN] Aumentado el límite para evitar perder mensajes recientes
 		);
 
 		let nearbyFound = false;

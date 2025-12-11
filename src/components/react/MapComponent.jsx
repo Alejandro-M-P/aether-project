@@ -83,7 +83,7 @@ export const MapComponent = ({
 							? p.cityName
 							: p.countryName || "Ubicación Desconocida";
 
-					// [ICONO ORIGINAL RESTAURADO]
+					// Icono original (pin) restaurado
 					const markerIcon = new L.Icon({
 						iconUrl: p.isNearby ? "/map-pin-green.svg" : "/map-pin-blue.svg",
 						iconSize: [30, 30],
@@ -100,7 +100,7 @@ export const MapComponent = ({
 							icon={markerIcon}
 							// No hay eventHandlers para que el clic simple abra el Popup.
 						>
-							{/* [POPUP MINIMALISTA NEGRO] con foto de perfil en la parte superior */}
+							{/* POPUP MINIMALISTA NEGRO con foto de perfil */}
 							<Popup offset={L.point(0, -20)}>
 								<div className="bg-black/90 text-white p-3 rounded-lg border border-white/10 shadow-lg w-48 font-mono text-xs backdrop-blur-sm">
 									{/* Bloque de Perfil (Foto de perfil, nombre y categoría) */}
