@@ -20,99 +20,120 @@
 	/* El TileLayer en Islands.jsx ya usa tiles oscuros */
 }
 
-/* Estilos de animación (mantenidos) */
-@keyframes pulse-green {
+/* ------------------------------------------------ */
+/* NUEVOS ESTILOS PARA MARCADOR DE FOTO Y OVERLAY */
+/* ------------------------------------------------ */
+
+/* Elimina el fondo por defecto del L.divIcon */
+.transparent-marker-icon {
+	background-color: transparent !important;
+	border: none !important;
+	box-shadow: none !important;
+}
+
+.thought-marker-container {
+	position: relative;
+	width: 40px;
+	height: 40px;
+	pointer-events: auto; /* Permitir interacciones con el marcador */
+}
+
+.thought-marker-container img {
+	z-index: 2;
+	position: relative;
+	box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+}
+
+/* Mensaje Flotante Animado (Overlay) */
+.thought-message-overlay {
+	position: absolute;
+	/* Centrado y posicionado por encima del marcador */
+	top: -65px;
+	left: 50%;
+	transform: translate(-50%, 0);
+	z-index: 10;
+	pointer-events: none; /* No bloquear clics en el mapa */
+	opacity: 0;
+	transition: opacity 0.5s, transform 0.5s;
+	text-align: center;
+	width: 200px; /* Ancho fijo para la burbuja de mensaje */
+}
+
+/* Efecto de visualización y animación flotante al hacer hover */
+.thought-marker-container:hover .thought-message-overlay {
+	opacity: 1;
+	animation: float-message 4s ease-in-out infinite;
+}
+
+@keyframes float-message {
+	0%,
+	100% {
+		transform: translate(-50%, 0);
+		opacity: 0.9;
+	}
+	50% {
+		transform: translate(-50%, -8px); /* Ligeramente más arriba */
+		opacity: 1;
+	}
+}
+
+.message-bubble {
+	width: auto;
+	min-width: 150px;
+	display: inline-block;
+	text-align: left;
+}
+
+/* Anillo de pulso (Reemplaza las clases de pulso anteriores) */
+.pulse-ring {
+	position: absolute;
+	top: -2px; /* Ajustar para centrar sobre la imagen de 32px */
+	left: -2px;
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	z-index: 1;
+	/* La imagen es de 32x32px (w-8 h-8 en Tailwind es 2rem = 32px, si se usa la configuración base) */
+}
+
+/* Modificar los keyframes existentes para que afecten al nuevo anillo/div */
+@keyframes pulse-green-ring {
 	0% {
 		box-shadow: 0 0 0 0 rgba(30, 200, 30, 0.4); /* Verde */
 	}
 	70% {
-		box-shadow: 0 0 0 20px rgba(30, 200, 30, 0);
+		box-shadow: 0 0 0 15px rgba(30, 200, 30, 0);
 	}
 	100% {
 		box-shadow: 0 0 0 0 rgba(30, 200, 30, 0);
 	}
 }
-.pulse-green {
-	animation: pulse-green 2s infinite;
-}
 
-@keyframes pulse-blue {
+@keyframes pulse-blue-ring {
 	0% {
 		box-shadow: 0 0 0 0 rgba(0, 191, 255, 0.4); /* Azul */
 	}
 	70% {
-		box-shadow: 0 0 0 20px rgba(0, 191, 255, 0);
+		box-shadow: 0 0 0 15px rgba(0, 191, 255, 0);
 	}
 	100% {
 		box-shadow: 0 0 0 0 rgba(0, 191, 255, 0);
 	}
 }
-.pulse-blue {
-	animation: pulse-blue 2s infinite;
+
+/* Aplicar la animación de pulso a la clase de anillo */
+.pulse-green-ring {
+	animation: pulse-green-ring 2s infinite;
 }
 
-.leaflet-marker-icon {
-	box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
-	background-color: transparent;
+.pulse-blue-ring {
+	animation: pulse-blue-ring 2s infinite;
 }
+
+/* Limpieza (si existían antes): Las clases de pulso ya no aplican a .leaflet-marker-icon, sino a .pulse-ring */
 
 .user-marker {
 	background-color: white !important;
 	border-radius: 50%;
 	box-shadow: 0 0 10px #fff;
-}
-
-/* NUEVO: Estilos para la Burbuja de Mensaje de Borrador (Draft Marker) */
-.draft-message-icon-wrapper {
-	pointer-events: none;
-	width: auto !important;
-	height: auto !important;
-}
-
-.draft-message-bubble {
-	pointer-events: all;
-	/* Estilos de Tailwind traducidos a CSS plano */
-	background-color: rgba(255, 255, 255, 0.2);
-	backdrop-filter: blur(8px);
-	border-radius: 9999px;
-	padding: 0.375rem 0.75rem; /* py-1.5 px-3 */
-	box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
-		0 8px 10px -6px rgba(0, 0, 0, 0.1);
-	border: 1px solid rgba(255, 255, 255, 0.3);
-	color: white;
-	font-family: monospace;
-	font-size: 0.75rem; /* text-xs */
-	max-width: 200px;
-	position: relative;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-
-	/* Posiciona la burbuja *encima* del marcador del usuario */
-	transform: translate(-50%, -150%);
-	animation: fadeInZoomIn 0.3s forwards;
-}
-
-.draft-message-tail {
-	position: absolute;
-	bottom: -6px;
-	left: 50%;
-	transform: translateX(-50%);
-	width: 0;
-	height: 0;
-	/* Color de la cola debe coincidir con el fondo de la burbuja */
-	border-left: 6px solid transparent;
-	border-right: 6px solid transparent;
-	border-top: 6px solid rgba(255, 255, 255, 0.2);
-}
-
-@keyframes fadeInZoomIn {
-	from {
-		opacity: 0;
-		transform: translate(-50%, -150%) scale(0.8);
-	}
-	to {
-		opacity: 1;
-		transform: translate(-50%, -150%) scale(1);
-	}
 }

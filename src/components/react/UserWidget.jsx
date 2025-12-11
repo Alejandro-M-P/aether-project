@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
 
-// 🚨 CORRECCIÓN IMPORTANTE: Subir dos niveles (../../)
 import { auth } from "../../firebase.js";
-import { isLoggedIn, mapKey } from "../../store.js"; // <-- ACT: Importar mapKey
+import { isLoggedIn, mapKey } from "../../store.js";
 
 import {
 	GoogleAuthProvider,
@@ -17,16 +16,18 @@ export default function UserWidget() {
 	useEffect(() => {
 		const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
 			setUser(currentUser);
-			// ACT: Actualiza el store de sesión
 			isLoggedIn.set(!!currentUser);
-			mapKey.set(mapKey.get() + 1); // <-- FIX CRÍTICO: Incrementar el contador en CADA cambio de Auth
+			mapKey.set(mapKey.get() + 1);
+
+			// AGREGADO: Debug para foto de perfil
+			if (currentUser && !currentUser.photoURL) {
+				console.warn(
+					"Firebase no proporcionó photoURL. Verifique que 'target-user.svg' exista en public/."
+				);
+			}
 		});
 		return () => unsubscribe();
 	}, []);
-	// ... (resto del componente sin cambios)
-	// ...
-	// ... (continúa)
-	// ...
 
 	const handleLogin = async () => {
 		const provider = new GoogleAuthProvider();
@@ -49,7 +50,7 @@ export default function UserWidget() {
 				title="Cerrar sesión"
 			>
 				<img
-					src={user.photoURL || "/target-user.svg"} // <-- FIX: Fallback seguro para la imagen de perfil
+					src={user.photoURL || "/target-user.svg"}
 					alt={user.displayName}
 					className="w-6 h-6 rounded-full border border-white/20"
 				/>

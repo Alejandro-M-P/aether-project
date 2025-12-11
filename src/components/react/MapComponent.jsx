@@ -26,13 +26,6 @@ const DEFAULT_CENTER = [20, 0];
 const DEFAULT_ZOOM = 2;
 const ZOOM_LEVEL_CITY_THRESHOLD = 4; // Umbral para cambiar de País a Ciudad/Pueblo
 
-// NUEVO: Definir los límites máximos del mundo (latitud: -90 a 90, longitud: -180 a 180)
-const WORLD_MAX_BOUNDS = [
-	[-90, -180],
-	[90, 180],
-];
-const MAX_BOUNDS_VISCOSITY = 1.0; // Hace que el límite sea estricto
-
 // Componente para rastrear el zoom (para filtrar la ubicación)
 const MapZoomTracker = ({ updateZoom }) => {
 	const map = useMap();
@@ -59,41 +52,7 @@ export const MapComponent = ({
 	openProfile,
 	updateZoom,
 	currentMapZoom,
-	draftMessage,
 }) => {
-	// NUEVO COMPONENTE: Marcador de Borrador (Burbuja de Texto)
-	const DraftMarker = () => {
-		// Renderizar solo si hay un mensaje de borrador y ubicación del visor
-		if (!draftMessage || !viewerLocation) return null;
-
-		// Limitar la longitud del mensaje para que la burbuja no sea demasiado larga
-		const displayMessage =
-			draftMessage.length > 25
-				? draftMessage.substring(0, 25) + "..."
-				: draftMessage;
-
-		// Crear un icono div para la burbuja de texto
-		const draftIcon = L.divIcon({
-			className: "draft-message-icon-wrapper",
-			html: `
-                <div class="draft-message-bubble">
-                    <span class="block">${displayMessage}</span>
-                    <div class="draft-message-tail"></div>
-                </div>
-            `,
-			iconSize: [200, 50],
-			iconAnchor: [100, 25],
-		});
-
-		// Renderizar el marcador en la ubicación del visor
-		return (
-			<Marker
-				position={[viewerLocation.lat, viewerLocation.lon]}
-				icon={draftIcon}
-			/>
-		);
-	};
-
 	return (
 		<MapContainer
 			center={DEFAULT_CENTER}
@@ -102,14 +61,11 @@ export const MapComponent = ({
 			minZoom={DEFAULT_ZOOM}
 			style={{ height: "100%", width: "100%", zIndex: 0 }}
 			className="map-container"
-			maxBounds={WORLD_MAX_BOUNDS} // <-- LÍMITES APLICADOS
-			maxBoundsViscosity={MAX_BOUNDS_VISCOSITY} // <-- LÍMITES APLICADOS
 		>
 			{/* Tiles Satelitales (Similar a Google Earth) */}
 			<TileLayer
 				attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
 				url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-				noWrap={true} // <-- MAPA NO INFINITO
 			/>
 
 			{/* Rastreador de Zoom */}
@@ -127,14 +83,43 @@ export const MapComponent = ({
 							? p.cityName
 							: p.countryName || "Ubicación Desconocida";
 
-					// Icono personalizado
-					const markerIcon = new L.Icon({
-						iconUrl: p.isNearby ? "/map-pin-green.svg" : "/map-pin-blue.svg",
-						iconSize: [30, 30],
-						iconAnchor: [15, 30],
-						className: `pulse-marker ${
-							p.isNearby ? "pulse-green" : "pulse-blue"
-						}`,
+					// Preparar datos para el marcador HTML
+					const photoUrl = p.photoURL || "/favicon.svg";
+					const baseClass = p.isNearby
+						? "border-emerald-600"
+						: "border-sky-500";
+					const pulseClass = p.isNearby
+						? "pulse-ring pulse-green-ring"
+						: "pulse-ring pulse-blue-ring";
+					// Limitar mensaje a 5 palabras para el overlay
+					const messageSnippet = (
+						p.text.split(" ").slice(0, 5).join(" ") + "..."
+					).replace(/"/g, "&quot;");
+					const locationText = displayLocation;
+
+					// 1. Crear el HTML del contenido del marcador usando un string (L.divIcon)
+					const markerHtml = `
+						<div class="thought-marker-container">
+							<div class="relative">
+								<img src="${photoUrl}" alt="${p.displayName}" class="w-8 h-8 rounded-full object-cover border-2 ${baseClass}" />
+								<span class="${pulseClass}"></span>
+							</div>
+
+							<div class="thought-message-overlay">
+								<div class="message-bubble bg-zinc-900 border ${baseClass}/50 p-2 rounded-lg shadow-xl">
+									<p class="text-white text-xs font-mono">"${messageSnippet}"</p>
+									<span class="text-[9px] text-zinc-400 mt-1 block">${locationText}</span>
+								</div>
+							</div>
+						</div>
+					`;
+
+					// Crear L.divIcon
+					const markerIcon = L.divIcon({
+						html: markerHtml,
+						iconSize: [40, 40], // Tamaño del contenedor (ajustado para la imagen de 32px + padding)
+						iconAnchor: [20, 40], // Centro de la imagen, parte inferior como ancla
+						className: "transparent-marker-icon", // Clase para eliminar el fondo por defecto de Leaflet
 					});
 
 					return (
@@ -142,14 +127,14 @@ export const MapComponent = ({
 							key={p.id}
 							position={[lat, lon]}
 							icon={markerIcon}
-							// No hay eventHandlers para que el clic simple abra el Popup.
+							// Nota: el Popup se abre al hacer clic en el L.divIcon por defecto
 						>
 							<Popup>
 								{/* Contenido del Pop-up con el tamaño ajustado */}
 								<div className="text-black text-sm font-mono max-w-sm w-48 p-1">
 									<div className="flex items-center gap-3 border-b pb-2 mb-2 border-zinc-200">
 										<img
-											src={p.photoURL || "/target-user.svg"} // <-- Fallback correcto para la imagen (necesita el archivo SVG)
+											src={p.photoURL || "/favicon.svg"}
 											alt={p.displayName}
 											className="w-10 h-10 rounded-full border border-zinc-400 object-cover"
 										/>
@@ -189,9 +174,6 @@ export const MapComponent = ({
 				}
 				return null;
 			})}
-
-			{/* NUEVO: Mostrar el marcador de borrador */}
-			<DraftMarker />
 
 			{/* Marcador de ubicación del visor */}
 			{viewerLocation && (
