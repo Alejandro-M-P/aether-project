@@ -21,7 +21,7 @@
 }
 
 /* ------------------------------------------------ */
-/* NUEVOS ESTILOS PARA MARCADOR DE FOTO Y OVERLAY */
+/* ESTILOS CUSTOMIZADOS PARA MARCADOR DE FOTO Y OVERLAY */
 /* ------------------------------------------------ */
 
 /* Elimina el fondo por defecto del L.divIcon */
@@ -130,8 +130,7 @@
 	animation: pulse-blue-ring 2s infinite;
 }
 
-/* Limpieza (si existían antes): Las clases de pulso ya no aplican a .leaflet-marker-icon, sino a .pulse-ring */
-
+/* Clases de utilidad antiguas que aún podrían usarse */
 .user-marker {
 	background-color: white !important;
 	border-radius: 50%;
