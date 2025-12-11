@@ -1,3 +1,4 @@
+// Archivo: src/components/react/Islands.jsx
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import { signInAnonymously } from "firebase/auth";
 import {
@@ -11,8 +12,8 @@ import {
 } from "firebase/firestore";
 
 import { auth, db } from "../../firebase.js";
-import { searchQuery, isLoggedIn, draftMessage } from "../../store.js"; // <-- ACT: Importar stores
-import { useStore } from "@nanostores/react"; // NUEVO: Importar useStore
+import { searchQuery, isLoggedIn, draftMessage } from "../../store.js";
+import { useStore } from "@nanostores/react";
 import { X, MapPin } from "lucide-react";
 
 // 🚨 CRÍTICO: Carga dinámica para MapComponent.jsx
@@ -48,7 +49,6 @@ const distanceBetween = (loc1, loc2) => {
 };
 
 // 👤 AVATAR POR DEFECTO
-// FIX: Usar el marcador de usuario como fallback más genérico
 const DEFAULT_AVATAR = "/target-user.svg";
 
 export const UniverseCanvas = () => {
@@ -237,16 +237,23 @@ export const UniverseCanvas = () => {
 						</div>
 					}
 				>
-					<MapComponent
-						key={$isLoggedIn.toString()} // <-- FIX 1: Fuerza la remounting del mapa en login/logout
-						messages={filteredMessages}
-						viewerLocation={viewerLocation}
-						nearbyThoughtExists={nearbyThoughtExists}
-						openProfile={openProfileMemo}
-						updateZoom={updateZoom}
-						currentMapZoom={currentMapZoom}
-						draftMessage={$draftMessage} // <-- ACT: Pasar el mensaje de borrador
-					/>
+					{/* CRÍTICO: SOLO renderizar si el usuario está autenticado */}
+					{$isLoggedIn ? (
+						<MapComponent
+							key={$isLoggedIn.toString()}
+							messages={filteredMessages}
+							viewerLocation={viewerLocation}
+							nearbyThoughtExists={nearbyThoughtExists}
+							openProfile={openProfileMemo}
+							updateZoom={updateZoom}
+							currentMapZoom={currentMapZoom}
+							draftMessage={$draftMessage}
+						/>
+					) : (
+						<div className="flex items-center justify-center w-full h-full text-zinc-500 font-mono">
+							Conectando con AETHER...
+						</div>
+					)}
 				</React.Suspense>
 			</div>
 
@@ -264,7 +271,7 @@ export const UniverseCanvas = () => {
 						<div className="flex flex-col items-center mb-8">
 							<div className="relative">
 								<img
-									src={selectedProfile.photoURL || DEFAULT_AVATAR} // <-- FIX: Usar DEFAULT_AVATAR como fallback
+									src={selectedProfile.photoURL || DEFAULT_AVATAR}
 									alt="Profile"
 									className="w-20 h-20 rounded-full border-2 border-zinc-800 object-cover"
 								/>

@@ -1,3 +1,4 @@
+// Archivo: src/components/react/MapComponent.jsx
 import React, { useEffect, useRef, useMemo } from "react";
 import {
 	MapContainer,

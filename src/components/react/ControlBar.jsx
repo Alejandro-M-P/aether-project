@@ -1,3 +1,4 @@
+// Archivo: src/components/react/ControlBar.jsx
 import React, { useState } from "react";
 import { Search, X } from "lucide-react";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
