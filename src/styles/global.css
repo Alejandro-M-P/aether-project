@@ -29,7 +29,6 @@
 	background-color: transparent !important;
 	border: none !important;
 	box-shadow: none !important;
-	/* Permite que los eventos pasen al elemento hijo (thought-marker-container) */
 	pointer-events: auto;
 }
 
@@ -38,7 +37,6 @@
 	position: relative;
 	width: 40px;
 	height: 40px;
-	/* Captura el hover */
 	pointer-events: auto;
 }
 
@@ -48,7 +46,6 @@
 	position: relative;
 	box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
 	border: 2px solid;
-	/* Asegura que no tenga el cursor de "clic" */
 	pointer-events: auto;
 	cursor: default;
 	transition: box-shadow 0.2s;
@@ -59,21 +56,20 @@
 	position: absolute;
 	top: -65px;
 	left: 50%;
-	/* Posición inicial para la animación de entrada (esto asegura que NO haya movimiento constante) */
-	transform: translateX(-50%) translateY(5px);
+	/* Posición fija encima del marcador (posición final) */
+	transform: translateX(-50%) translateY(0);
 	z-index: 10;
-	/* CRÍTICO: Debe ser NONE para que el clic pase a través del mensaje (si se implementara un clic) */
+	/* CRÍTICO: Debe ser NONE para que no bloquee el clic en la imagen (para abrir el perfil) */
 	pointer-events: none;
-	opacity: 0;
-	/* Animación de entrada/salida en hover */
-	transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+	/* HACEMOS EL MENSAJE PERMANENTEMENTE VISIBLE (opacidad 1) */
+	opacity: 1;
+	transition: none; /* Eliminamos transiciones innecesarias */
 	text-align: center;
 }
 
-/* 5. Efecto de visualización al hacer hover (El Pop-up animado) */
+/* 5. Efecto de visualización al hacer hover (SE ELIMINA) */
 .thought-marker-container:hover .thought-message-overlay {
-	opacity: 1;
-	transform: translateX(-50%) translateY(0); /* Sube a la posición final */
+	/* Las reglas de hover ya no son necesarias, el mensaje siempre es visible */
 }
 
 .message-bubble {
