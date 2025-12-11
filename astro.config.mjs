@@ -1,17 +1,14 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
-import tailwind from '@astrojs/tailwind'; // <-- Necesitarías instalar esta dependencia
 
 // https://astro.build/config
 export default defineConfig({
-  // CAMBIO CLAVE: Usamos la integración oficial de Astro para Tailwind
-  integrations: [react(), tailwind()], 
+  // Solo dejamos la integración de React.
+  integrations: [react()],
 
-  // Mantenemos la solución para el error de three.js (degradación)
-  vite: {
-    ssr: {
-      noExternal: ['three', 'react-globe.gl', 'three-globe']
-    }
-  }
+  // Eliminamos completamente el bloque 'vite'. 
+  // Esto resuelve el error de ERESOLVE y el de TS2322.
+  // Tailwind se activará automáticamente porque está instalado 
+  // y se importa en src/styles/global.css.
 });
