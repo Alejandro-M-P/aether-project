@@ -51,6 +51,7 @@ const DEFAULT_AVATAR = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/
 
 export const UniverseCanvas = () => {
 	const particlesRef = useRef([]);
+	const isInitialLoad = useRef(true); // Flag para evitar el toast en la carga inicial
 
 	const [selectedProfile, setSelectedProfile] = useState(null);
 	const [profilePosts, setProfilePosts] = useState([]);
@@ -59,7 +60,11 @@ export const UniverseCanvas = () => {
 	// ESTADO: Ubicación del usuario que ve el mapa
 	const [viewerLocation, setViewerLocation] = useState(null);
 	const [nearbyThoughtExists, setNearbyThoughtExists] = useState(false);
-	const [currentMapZoom, setCurrentMapZoom] = useState(2); // Estado para el zoom del mapa
+	const [currentMapZoom, setCurrentMapZoom] = useState(2);
+
+	// NUEVO ESTADO PARA EL TOAST DE MENSAJE
+	const [newThoughtToast, setNewThoughtToast] = useState(null);
+	const prevNewestMessageId = useRef(null); // Para evitar duplicados en el toast
 
 	// Mantenemos openProfile como una función que se pasa al MapComponent
 	const openProfile = async (user) => {
@@ -129,6 +134,40 @@ export const UniverseCanvas = () => {
 		let nearbyFound = false;
 
 		const unsubscribe = onSnapshot(q, (snapshot) => {
+			// Lógica para el Toast (Detección de Nuevo Mensaje)
+			if (!isInitialLoad.current && snapshot.docs.length > 0) {
+				const newestDoc = snapshot.docs[0];
+				const newestMessageData = newestDoc.data();
+				const newestMessageId = newestDoc.id;
+
+				// Solo si es un mensaje diferente al que ya hemos notificado
+				if (newestMessageId !== prevNewestMessageId.current) {
+					// Solo anunciamos si el mensaje es muy reciente (ej. en los últimos 10 segundos)
+					const timestampMs = newestMessageData.timestamp
+						? newestMessageData.timestamp.toMillis()
+						: Date.now();
+
+					if (Date.now() - timestampMs < 10000) {
+						setNewThoughtToast({
+							text: newestMessageData.message,
+							displayName: newestMessageData.displayName,
+						});
+
+						// Limpiar el toast después de 5 segundos
+						setTimeout(() => {
+							setNewThoughtToast(null);
+						}, 5000);
+					}
+
+					prevNewestMessageId.current = newestMessageId;
+				}
+			}
+
+			// Marcar que la carga inicial terminó después de la primera ejecución
+			isInitialLoad.current = false;
+
+			// COMIENZO DE LA LÓGICA DE PROCESAMIENTO DE MARCADORES (EXISTENTE)
+
 			const currentParticlesMap = new Map(
 				particlesRef.current.map((p) => [p.id, p])
 			);
@@ -203,7 +242,10 @@ export const UniverseCanvas = () => {
 			const filterText = searchQuery.get().toLowerCase().trim();
 			setNearbyThoughtExists(nearbyFound && !filterText);
 		});
-		return () => unsubscribe();
+		return () => {
+			unsubscribe();
+			isInitialLoad.current = true; // Reset flag on unmount
+		};
 	}, [viewerLocation, openProfileMemo]);
 
 	// Preparar los mensajes para el mapa (filtrados por búsqueda)
@@ -221,6 +263,18 @@ export const UniverseCanvas = () => {
 
 	return (
 		<>
+			{/* NUEVO TOAST DE NOTIFICACIÓN EN TIEMPO REAL */}
+			{newThoughtToast && (
+				<div className="fixed top-20 left-1/2 -translate-x-1/2 z-70 p-4 bg-zinc-800/90 backdrop-blur-md rounded-xl shadow-2xl border border-emerald-500/50 animate-in fade-in slide-in-from-top-10 duration-500">
+					<p className="text-sm font-mono text-white/90">
+						<span className="text-emerald-400 font-bold">
+							📡 SEÑAL ENTRANTE:{" "}
+						</span>
+						<span className="italic">"{newThoughtToast.text}"</span>
+					</p>
+				</div>
+			)}
+
 			{/* Contenedor del Mapa (Se mostrará solo en el cliente) */}
 			<div className="w-full h-full -z-10 bg-black">
 				{/* Suspense muestra un fallback mientras el componente del mapa carga */}
