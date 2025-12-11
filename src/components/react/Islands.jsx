@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { signInAnonymously } from "firebase/auth";
 import {
 	collection,
@@ -56,111 +56,12 @@ export const UniverseCanvas = () => {
 	const [profilePosts, setProfilePosts] = useState([]);
 	const [loadingProfile, setLoadingProfile] = useState(false);
 
-	useEffect(() => {
-		if (!auth.currentUser) {
-			signInAnonymously(auth).catch(() => {});
-		}
+	// ESTADO: Ubicación del usuario que ve el mapa
+	const [viewerLocation, setViewerLocation] = useState(null);
+	const [nearbyThoughtExists, setNearbyThoughtExists] = useState(false);
+	const [currentMapZoom, setCurrentMapZoom] = useState(2); // Estado para el zoom del mapa
 
-		if (starsRef.current.length === 0) {
-			for (let i = 0; i < 150; i++) {
-				starsRef.current.push({
-					x: Math.random(),
-					y: Math.random(),
-					size: Math.random() * 1.5,
-					alpha: Math.random(),
-					twinkleSpeed: Math.random() * 0.02,
-				});
-			}
-		}
-
-		const q = query(
-			collection(db, "thoughts"),
-			orderBy("timestamp", "desc"),
-			limit(60)
-		);
-
-		const unsubscribe = onSnapshot(q, (snapshot) => {
-			const currentParticlesMap = new Map(
-				particlesRef.current.map((p) => [p.id, p])
-			);
-
-			const valid = [];
-
-			snapshot.docs.forEach((doc) => {
-				const data = doc.data();
-				if (data.message) {
-					const createdAt = data.timestamp
-						? data.timestamp.toMillis()
-						: Date.now();
-
-					// --- LÓGICA DE IMAGEN ROBUSTA ---
-					const avatarUrl = data.photoURL || DEFAULT_AVATAR;
-					let imgObj = null;
-
-					if (imageCache[avatarUrl]) {
-						imgObj = imageCache[avatarUrl];
-					} else {
-						const img = new Image();
-
-						// Solo aplicamos referrerPolicy si es una URL externa (Google), no para data:
-						if (!avatarUrl.startsWith("data:")) {
-							img.crossOrigin = "Anonymous";
-							img.referrerPolicy = "no-referrer";
-						}
-
-						img.src = avatarUrl;
-						imageCache[avatarUrl] = img;
-						imgObj = img;
-					}
-					// ---------------------------------
-
-					const existing = currentParticlesMap.get(doc.id);
-
-					valid.push({
-						id: doc.id,
-						x: existing ? existing.x : Math.random() * window.innerWidth,
-						y: existing ? existing.y : Math.random() * window.innerHeight,
-						text: data.message,
-						category: data.category
-							? String(data.category).toUpperCase()
-							: "GENERAL",
-						uid: data.uid,
-						displayName: data.displayName,
-						photoURL: data.photoURL,
-						imgElement: imgObj,
-						vx: existing ? existing.vx : (Math.random() - 0.5) * 0.3,
-						vy: existing ? existing.vy : (Math.random() - 0.5) * 0.3,
-						createdAt: createdAt,
-					});
-				}
-			});
-			particlesRef.current = valid;
-		});
-		return () => unsubscribe();
-	}, []);
-
-	const handleCanvasClick = (e) => {
-		const canvas = canvasRef.current;
-		if (!canvas) return;
-
-		const rect = canvas.getBoundingClientRect();
-		const x = e.clientX - rect.left;
-		const y = e.clientY - rect.top;
-
-		const clickedParticle = particlesRef.current.find((p) => {
-			if (!p.uid) return false;
-			const age = Date.now() - p.createdAt;
-			if (age > MESSAGE_LIFETIME) return false;
-
-			const dist = Math.sqrt((p.x - x) ** 2 + (p.y - y) ** 2);
-			return dist < 50;
-		});
-
-		if (clickedParticle) {
-			openProfile(clickedParticle);
-		}
-	};
-
+	// Mantenemos openProfile como una función que se pasa al MapComponent
 	const openProfile = async (user) => {
 		setSelectedProfile(user);
 		setLoadingProfile(true);
@@ -186,7 +87,7 @@ export const UniverseCanvas = () => {
 		}
 	};
 
-	// Memorizar openProfile para evitar re-renders innecesarios en MapComponent
+	// Memorizar openProfile
 	const openProfileMemo = useMemo(() => openProfile, []);
 
 	// Función para actualizar el zoom del mapa (pasada al MapComponent)
@@ -198,117 +99,125 @@ export const UniverseCanvas = () => {
 	);
 
 	useEffect(() => {
-		const canvas = canvasRef.current;
-		const ctx = canvas.getContext("2d");
-		let animationId;
+		if (!auth.currentUser) {
+			signInAnonymously(auth).catch(() => {});
+		}
 
-		const render = () => {
-			if (
-				canvas.width !== window.innerWidth ||
-				canvas.height !== window.innerHeight
-			) {
-				canvas.width = window.innerWidth;
-				canvas.height = window.innerHeight;
-			}
-
-			ctx.fillStyle = "#000000";
-			ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-			starsRef.current.forEach((star) => {
-				star.alpha += star.twinkleSpeed;
-				if (star.alpha > 1 || star.alpha < 0) star.twinkleSpeed *= -1;
-				ctx.fillStyle = `rgba(255, 255, 255, ${Math.abs(star.alpha)})`;
-				ctx.beginPath();
-				ctx.arc(
-					star.x * canvas.width,
-					star.y * canvas.height,
-					star.size,
-					0,
-					Math.PI * 2
-				);
-				ctx.fill();
-			});
-
-			const filterText = searchQuery.get().toLowerCase().trim();
-			const now = Date.now();
-
-			particlesRef.current.forEach((p) => {
-				const age = now - p.createdAt;
-				if (age > MESSAGE_LIFETIME) return;
-
-				let lifeAlpha = 1;
-				if (age > MESSAGE_LIFETIME - FADE_DURATION) {
-					const timeLeft = MESSAGE_LIFETIME - age;
-					lifeAlpha = timeLeft / FADE_DURATION;
+		// OBTENER UBICACIÓN DEL VISUALIZADOR
+		if (typeof window !== "undefined" && "geolocation" in navigator) {
+			navigator.geolocation.getCurrentPosition(
+				(position) => {
+					setViewerLocation({
+						lat: position.coords.latitude,
+						lon: position.coords.longitude,
+					});
+				},
+				(error) => {
+					console.warn("Geolocalización del visor denegada o fallida.", error);
+					setViewerLocation(null);
 				}
+			);
+		}
 
-				p.x += p.vx;
-				p.y += p.vy;
+		// LÓGICA DE FIREBASE PARA PARTÍCULAS/MENSAJES
+		const q = query(
+			collection(db, "thoughts"),
+			orderBy("timestamp", "desc"),
+			limit(60)
+		);
 
-				if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
-				if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+		let nearbyFound = false;
 
-				const matchMessage = p.text.toLowerCase().includes(filterText);
-				const matchCategory = p.category.toLowerCase().includes(filterText);
+		const unsubscribe = onSnapshot(q, (snapshot) => {
+			const currentParticlesMap = new Map(
+				particlesRef.current.map((p) => [p.id, p])
+			);
 
-				if (!filterText || matchMessage || matchCategory) {
-					ctx.font = "14px monospace";
-					ctx.fillStyle = "#ffffff";
+			const valid = [];
+			nearbyFound = false;
 
-					const baseAlpha = filterText ? 1 : 0.9;
-					const finalAlpha = Math.max(0, baseAlpha * lifeAlpha);
-					ctx.globalAlpha = finalAlpha;
+			snapshot.docs.forEach((doc) => {
+				const data = doc.data();
+				if (data.message) {
+					const createdAt = data.timestamp
+						? data.timestamp.toMillis()
+						: Date.now();
 
-					// --- DIBUJAR AVATAR (Con Fallback) ---
-					const size = 24;
-					const avX = p.x - size - 10;
-					const avY = p.y - size / 1.5;
+					const avatarUrl = data.photoURL || DEFAULT_AVATAR;
+					let imgObj = null;
 
-					// 1. Dibujar círculo de fondo siempre (por si la imagen es transparente o carga)
-					ctx.beginPath();
-					ctx.arc(avX + size / 2, avY + size / 2, size / 2, 0, Math.PI * 2);
-					ctx.fillStyle = `rgba(30, 30, 30, ${finalAlpha})`; // Gris oscuro
-					ctx.fill();
-
-					// 2. Intentar dibujar la imagen si está lista
-					if (
-						p.imgElement &&
-						p.imgElement.complete &&
-						p.imgElement.naturalHeight !== 0
-					) {
-						ctx.save();
-						ctx.beginPath();
-						ctx.arc(avX + size / 2, avY + size / 2, size / 2, 0, Math.PI * 2);
-						ctx.closePath();
-						ctx.clip();
-						try {
-							ctx.drawImage(p.imgElement, avX, avY, size, size);
-						} catch (e) {
-							// Ignorar errores de dibujo
+					if (imageCache[avatarUrl]) {
+						imgObj = imageCache[avatarUrl];
+					} else if (typeof window !== "undefined") {
+						const img = new Image();
+						if (!avatarUrl.startsWith("data:")) {
+							img.crossOrigin = "Anonymous";
+							img.referrerPolicy = "no-referrer";
 						}
-						ctx.restore();
+						img.src = avatarUrl;
+						imageCache[avatarUrl] = img;
+						imgObj = img;
+					}
+					// ---------------------------------
+
+					const existing = currentParticlesMap.get(doc.id);
+					const location = data.location || null;
+					const cityName = data.cityName || null; // Leer Ciudad
+					const countryName = data.countryName || null; // Leer País
+					let isNearby = false;
+
+					// Usamos location (coordenadas precisas) para la lógica de distancia
+					if (viewerLocation && location) {
+						const dist = distanceBetween(viewerLocation, location);
+						if (dist < PROXIMITY_DEGREES) {
+							isNearby = true;
+							nearbyFound = true;
+						}
 					}
 
-					// 3. Borde final
-					ctx.beginPath();
-					ctx.arc(avX + size / 2, avY + size / 2, size / 2, 0, Math.PI * 2);
-					ctx.strokeStyle = `rgba(255,255,255,${0.4 * lifeAlpha})`;
-					ctx.lineWidth = 1;
-					ctx.stroke();
-
-					// --- DIBUJAR TEXTO ---
-					ctx.fillStyle = "#ffffff"; // Asegurar color blanco
-					ctx.fillText(p.text, p.x, p.y);
-
-					ctx.globalAlpha = 1;
+					valid.push({
+						id: doc.id,
+						text: data.message,
+						category: data.category
+							? String(data.category).toUpperCase()
+							: "GENERAL",
+						uid: data.uid,
+						displayName: data.displayName,
+						photoURL: data.photoURL,
+						imgElement: imgObj,
+						createdAt: createdAt,
+						location: location,
+						cityName: cityName,
+						countryName: countryName,
+						isNearby: isNearby,
+					});
 				}
 			});
 
-			animationId = requestAnimationFrame(render);
-		};
-		render();
-		return () => cancelAnimationFrame(animationId);
-	}, []);
+			// Filtrar mensajes expirados antes de guardarlos
+			particlesRef.current = valid.filter(
+				(p) => Date.now() - p.createdAt <= MESSAGE_LIFETIME
+			);
+
+			// Si el texto de búsqueda está activo, no considerar el zoom de cercanía
+			const filterText = searchQuery.get().toLowerCase().trim();
+			setNearbyThoughtExists(nearbyFound && !filterText);
+		});
+		return () => unsubscribe();
+	}, [viewerLocation, openProfileMemo]);
+
+	// Preparar los mensajes para el mapa (filtrados por búsqueda)
+	const filteredMessages = useMemo(() => {
+		const filterText = searchQuery.get().toLowerCase().trim();
+		// Ya están filtrados por expiración en el onSnapshot, solo queda el filtro de búsqueda
+		return particlesRef.current.filter((p) => {
+			if (!filterText) return true;
+			return (
+				p.text.toLowerCase().includes(filterText) ||
+				p.category.toLowerCase().includes(filterText)
+			);
+		});
+	}, [searchQuery.get()]);
 
 	return (
 		<>
