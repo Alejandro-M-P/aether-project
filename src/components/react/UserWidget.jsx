@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
+import { User } from "lucide-react"; // <--- 1. Importamos el icono
 
-// 🚨 CORRECCIÓN IMPORTANTE: Subir dos niveles (../../)
 import { auth } from "../../firebase.js";
+import { isLoggedIn, mapKey } from "../../store.js";
 
 import {
 	GoogleAuthProvider,
@@ -16,6 +17,9 @@ export default function UserWidget() {
 	useEffect(() => {
 		const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
 			setUser(currentUser);
+			isLoggedIn.set(!!currentUser);
+			mapKey.set(mapKey.get() + 1);
+            // Eliminamos el warning de consola anterior ya no es necesario
 		});
 		return () => unsubscribe();
 	}, []);
@@ -40,13 +44,21 @@ export default function UserWidget() {
 				className="pointer-events-auto flex items-center gap-3 px-3 py-1.5 rounded-full bg-zinc-900/60 border border-white/10 hover:border-red-500/50 transition-all group backdrop-blur-md cursor-pointer"
 				title="Cerrar sesión"
 			>
-				<img
-					src={user.photoURL}
-					alt={user.displayName}
-					className="w-6 h-6 rounded-full border border-white/20"
-				/>
+				{/* 2. Lógica condicional: Si hay foto usa <img>, si no, usa el icono <User> */}
+				<div className="w-6 h-6 rounded-full border border-white/20 flex items-center justify-center bg-black overflow-hidden">
+					{user.photoURL ? (
+						<img
+							src={user.photoURL}
+							alt={user.displayName}
+							className="w-full h-full object-cover"
+						/>
+					) : (
+						<User className="w-3.5 h-3.5 text-zinc-400" />
+					)}
+				</div>
+				
 				<span className="text-[10px] font-mono text-zinc-300 uppercase tracking-widest group-hover:text-red-400">
-					{user.displayName?.split(" ")[0]}
+					{user.displayName?.split(" ")[0] || "USUARIO"}
 				</span>
 			</button>
 		);
