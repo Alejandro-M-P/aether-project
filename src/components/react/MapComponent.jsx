@@ -26,9 +26,6 @@ const DEFAULT_CENTER = [20, 0];
 const DEFAULT_ZOOM = 2;
 const ZOOM_LEVEL_CITY_THRESHOLD = 4; // Umbral para cambiar de País a Ciudad/Pueblo
 
-// Fallback SVG para el marcador cuando no hay foto de perfil (copiado de Islands.jsx)
-const DEFAULT_AVATAR_MARKER = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 8v4'/%3E%3Cpath d='M12 16h.01'/%3E%3C/svg%3E`;
-
 // Componente para rastrear el zoom (para filtrar la ubicación)
 const MapZoomTracker = ({ updateZoom }) => {
 	const map = useMap();
@@ -87,14 +84,11 @@ export const MapComponent = ({
 							: p.countryName || "Ubicación Desconocida";
 
 					// Preparar datos para el marcador HTML
-					// Usa la foto de Google o el SVG de reserva
-					const photoUrl = p.photoURL || DEFAULT_AVATAR_MARKER;
+					// Usa la foto de Google o el /favicon.svg vacío.
+					const photoUrl = p.photoURL || "/favicon.svg";
 					const baseClass = p.isNearby
 						? "border-emerald-600"
 						: "border-sky-500";
-					const pulseClass = p.isNearby
-						? "pulse-ring pulse-green-ring"
-						: "pulse-blue-ring";
 
 					// Limitar mensaje a 5 palabras para el overlay
 					const messageSnippet = (
@@ -107,8 +101,7 @@ export const MapComponent = ({
 						<div class="thought-marker-container">
 							<div class="relative">
 								<img src="${photoUrl}" alt="${p.displayName}" class="w-8 h-8 rounded-full object-cover border-2 ${baseClass}" />
-								<span class="${pulseClass}"></span>
-							</div>
+								</div>
 
 							<div class="thought-message-overlay">
 								<div class="message-bubble bg-zinc-900 border ${baseClass}/50 p-2 rounded-lg shadow-xl">
@@ -128,48 +121,12 @@ export const MapComponent = ({
 					});
 
 					return (
-						<Marker key={p.id} position={[lat, lon]} icon={markerIcon}>
-							<Popup>
-								{/* Contenido del Pop-up con el tamaño ajustado */}
-								<div className="text-black text-sm font-mono max-w-sm w-48 p-1">
-									<div className="flex items-center gap-3 border-b pb-2 mb-2 border-zinc-200">
-										<img
-											src={p.photoURL || "/favicon.svg"}
-											alt={p.displayName}
-											className="w-10 h-10 rounded-full border border-zinc-400 object-cover"
-										/>
-										<div className="flex flex-col">
-											<p className="text-xs font-bold text-zinc-800">
-												{p.displayName?.split(" ")[0] || "Anónimo"}
-											</p>
-											<p className="text-[10px] text-zinc-500 uppercase tracking-widest">
-												{p.category}
-											</p>
-										</div>
-									</div>
-
-									{/* Caja de Texto (Mensaje) */}
-									<div className="bg-zinc-100 p-3 rounded text-zinc-700 border border-zinc-300/50">
-										<p className="italic text-sm">"{p.text}"</p>
-									</div>
-
-									{/* Ubicación (Mostrar Ciudad o País) */}
-									{p.countryName && (
-										<div className="text-[10px] text-sky-600 mt-2 flex justify-end items-center gap-1">
-											<MapPin size={10} /> {displayLocation}
-										</div>
-									)}
-
-									{/* Botón para abrir el Modal de Perfil */}
-									<button
-										onClick={() => openProfile(p)}
-										className="text-[10px] text-center text-emerald-600 mt-3 border-t pt-1 border-zinc-200 w-full hover:text-emerald-800 font-bold uppercase tracking-widest"
-									>
-										Ver Perfil Completo
-									</button>
-								</div>
-							</Popup>
-						</Marker>
+						<Marker
+							key={p.id}
+							position={[lat, lon]}
+							icon={markerIcon}
+							// El Popup fue eliminado para priorizar el hover
+						></Marker>
 					);
 				}
 				return null;

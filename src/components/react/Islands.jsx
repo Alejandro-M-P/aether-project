@@ -33,7 +33,7 @@ const MapComponent = React.lazy(() =>
 const imageCache = {};
 
 // CONFIGURACIÓN DE TIEMPO
-const MESSAGE_LIFETIME = 300000; // 5 minutos (300 segundos) - Aumentado para visibilidad
+const MESSAGE_LIFETIME = 300000; // 5 minutos (300 segundos) - Ajustado
 
 // CONFIGURACIÓN DE PROXIMIDAD
 const PROXIMITY_DEGREES = 0.05;

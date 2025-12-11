@@ -38,19 +38,19 @@
 	position: relative;
 	width: 40px;
 	height: 40px;
-	/* Establecemos 'auto' aquí para que capture el hover */
+	/* Captura el hover */
 	pointer-events: auto;
 }
 
-/* 3. La imagen de perfil (El objetivo del Clic) */
+/* 3. La imagen de perfil */
 .thought-marker-container img {
 	z-index: 2;
 	position: relative;
 	box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
 	border: 2px solid;
-	/* CRÍTICO: Aseguramos que solo la imagen sea el objetivo de la interacción para que el Popup funcione. */
+	/* Asegura que no tenga el cursor de "clic" */
 	pointer-events: auto;
-	cursor: pointer;
+	cursor: default;
 	transition: box-shadow 0.2s;
 }
 
@@ -59,18 +59,18 @@
 	position: absolute;
 	top: -65px;
 	left: 50%;
-	/* Posición inicial para la animación de entrada */
+	/* Posición inicial para la animación de entrada (esto asegura que NO haya movimiento constante) */
 	transform: translateX(-50%) translateY(5px);
 	z-index: 10;
-	/* CRÍTICO: Debe ser NONE para que el clic pase a través del mensaje y llegue a la imagen */
+	/* CRÍTICO: Debe ser NONE para que el clic pase a través del mensaje (si se implementara un clic) */
 	pointer-events: none;
 	opacity: 0;
-	/* Animación de entrada/salida */
+	/* Animación de entrada/salida en hover */
 	transition: opacity 0.3s ease-out, transform 0.3s ease-out;
 	text-align: center;
 }
 
-/* 5. Efecto de visualización al hacer hover (Pop-up animado) */
+/* 5. Efecto de visualización al hacer hover (El Pop-up animado) */
 .thought-marker-container:hover .thought-message-overlay {
 	opacity: 1;
 	transform: translateX(-50%) translateY(0); /* Sube a la posición final */
@@ -87,7 +87,6 @@
 /* ESTILOS DE PULSO (Mantenidos) */
 /* ------------------------------------------------ */
 
-/* Anillo de pulso (Asegura que la posición sea correcta) */
 .pulse-ring {
 	position: absolute;
 	top: -2px;
@@ -98,7 +97,6 @@
 	z-index: 1;
 }
 
-/* Keyframes (Mantenidos) */
 @keyframes pulse-green-ring {
 	0% {
 		box-shadow: 0 0 0 0 rgba(30, 200, 30, 0.4);
