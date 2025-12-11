@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 
 import { auth, db } from "../../firebase.js";
+import { useStore } from "@nanostores/react"; // [CORRECCIÓN] Importado para reactividad
 import { searchQuery } from "../../store.js";
 import { X, MapPin } from "lucide-react";
 
@@ -33,10 +34,9 @@ const MapComponent = React.lazy(() =>
 const imageCache = {};
 
 // CONFIGURACIÓN DE TIEMPO
-const MESSAGE_LIFETIME = 300000; // 5 minutos (300 segundos) - Ajustado
+const MESSAGE_LIFETIME = 60000; // 60 segundos
 
-// CONSTANTE
-const DEFAULT_ZOOM = 2; // Zoom mundial de inicio
+// CONFIGURACIÓN DE PROXIMIDAD
 const PROXIMITY_DEGREES = 0.05;
 
 // Función de distancia Euclidiana simplificada (para la lógica de proximidad)
@@ -52,8 +52,6 @@ const DEFAULT_AVATAR = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/
 
 export const UniverseCanvas = () => {
 	const particlesRef = useRef([]);
-	// Flag para evitar el toast en la carga inicial
-	const isInitialLoad = useRef(true);
 
 	const [selectedProfile, setSelectedProfile] = useState(null);
 	const [profilePosts, setProfilePosts] = useState([]);
@@ -62,10 +60,13 @@ export const UniverseCanvas = () => {
 	// ESTADO: Ubicación del usuario que ve el mapa
 	const [viewerLocation, setViewerLocation] = useState(null);
 	const [nearbyThoughtExists, setNearbyThoughtExists] = useState(false);
-	const [currentMapZoom, setCurrentMapZoom] = useState(DEFAULT_ZOOM);
+	const [currentMapZoom, setCurrentMapZoom] = useState(2); // Estado para el zoom del mapa
 
-	// ESTADO PARA EL TOAST DE MENSAJE
-	const [newThoughtToast, setNewThoughtToast] = useState(null);
+	// [CORRECCIÓN] Estado para forzar re-renderizado de partículas (Soluciona Bug 1)
+	const [particlesLoadedVersion, setParticlesLoadedVersion] = useState(0);
+
+	// [CORRECCIÓN] Suscripción reactiva al store de búsqueda (Soluciona Bug 2)
+	const $searchQuery = useStore(searchQuery);
 
 	// Mantenemos openProfile como una función que se pasa al MapComponent
 	const openProfile = async (user) => {
@@ -104,11 +105,7 @@ export const UniverseCanvas = () => {
 		[]
 	);
 
-	// EFECTO PRINCIPAL DE CONEXIÓN Y FILTROS
 	useEffect(() => {
-		// CORRECCIÓN CRÍTICA 1: Resetea el filtro de búsqueda al cargar para ver todo
-		searchQuery.set("");
-
 		if (!auth.currentUser) {
 			signInAnonymously(auth).catch(() => {});
 		}
@@ -139,38 +136,6 @@ export const UniverseCanvas = () => {
 		let nearbyFound = false;
 
 		const unsubscribe = onSnapshot(q, (snapshot) => {
-			// CORRECCIÓN CRÍTICA 2: Detección Instantánea y Confiable de Nuevos Mensajes (Toast)
-			snapshot.docChanges().forEach((change) => {
-				// Si el tipo de cambio es 'added' (nuevo) y NO es la carga inicial
-				if (change.type === "added" && !isInitialLoad.current) {
-					const data = change.doc.data();
-
-					// Solo notificar si el post es muy reciente (ej. en los últimos 15 segundos)
-					const timestampMs = data.timestamp
-						? data.timestamp.toMillis()
-						: Date.now();
-
-					if (Date.now() - timestampMs < 15000) {
-						setNewThoughtToast({
-							text: data.message,
-							displayName: data.displayName,
-						});
-
-						// Limpiar el toast después de 5 segundos
-						setTimeout(() => {
-							setNewThoughtToast(null);
-						}, 5000);
-					}
-				}
-			});
-
-			// Marcar que la carga inicial terminó después de la primera ejecución
-			if (isInitialLoad.current) {
-				isInitialLoad.current = false;
-			}
-
-			// COMIENZO DE LA LÓGICA DE PROCESAMIENTO DE MARCADORES (EXISTENTE)
-
 			const currentParticlesMap = new Map(
 				particlesRef.current.map((p) => [p.id, p])
 			);
@@ -241,48 +206,33 @@ export const UniverseCanvas = () => {
 				(p) => Date.now() - p.createdAt <= MESSAGE_LIFETIME
 			);
 
+			// [CORRECCIÓN] Forzar el re-renderizado al actualizar la lista de partículas
+			setParticlesLoadedVersion((v) => v + 1);
+
 			// Si el texto de búsqueda está activo, no considerar el zoom de cercanía
-			const filterText = searchQuery.get().toLowerCase().trim();
+			const filterText = $searchQuery.toLowerCase().trim(); // [CORRECCIÓN] Usar $searchQuery reactivo
 			setNearbyThoughtExists(nearbyFound && !filterText);
 		});
-		return () => {
-			unsubscribe();
-			isInitialLoad.current = true; // Reset flag on unmount
-		};
-	}, [viewerLocation, openProfileMemo]);
+		return () => unsubscribe();
+		// [CORRECCIÓN] Añadir $searchQuery a las dependencias
+	}, [viewerLocation, openProfileMemo, $searchQuery]);
 
 	// Preparar los mensajes para el mapa (filtrados por búsqueda)
 	const filteredMessages = useMemo(() => {
-		const filterText = searchQuery.get().toLowerCase().trim();
-
-		// CORRECCIÓN CRÍTICA 3: Muestra todos los mensajes si el filtro está vacío, y filtra solo si hay texto.
-		if (!filterText) {
-			return particlesRef.current;
-		}
-
-		// Si hay un filtro activo, aplicamos el filtro.
+		const filterText = $searchQuery.toLowerCase().trim(); // [CORRECCIÓN] Usar $searchQuery reactivo
+		// Ya están filtrados por expiración en el onSnapshot, solo queda el filtro de búsqueda
 		return particlesRef.current.filter((p) => {
+			if (!filterText) return true;
 			return (
 				p.text.toLowerCase().includes(filterText) ||
 				p.category.toLowerCase().includes(filterText)
 			);
 		});
-	}, [searchQuery.get()]);
+		// [CORRECCIÓN] Añadir particlesLoadedVersion y $searchQuery como dependencias
+	}, [particlesLoadedVersion, $searchQuery]);
 
 	return (
 		<>
-			{/* TOAST DE NOTIFICACIÓN EN TIEMPO REAL */}
-			{newThoughtToast && (
-				<div className="fixed top-20 left-1/2 -translate-x-1/2 z-70 p-4 bg-zinc-800/90 backdrop-blur-md rounded-xl shadow-2xl border border-emerald-500/50 animate-in fade-in slide-in-from-top-10 duration-500">
-					<p className="text-sm font-mono text-white/90">
-						<span className="text-emerald-400 font-bold">
-							📡 SEÑAL ENTRANTE:{" "}
-						</span>
-						<span className="italic">"{newThoughtToast.text}"</span>
-					</p>
-				</div>
-			)}
-
 			{/* Contenedor del Mapa (Se mostrará solo en el cliente) */}
 			<div className="w-full h-full -z-10 bg-black">
 				{/* Suspense muestra un fallback mientras el componente del mapa carga */}
