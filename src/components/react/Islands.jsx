@@ -11,9 +11,12 @@ import {
 } from "firebase/firestore";
 
 import { auth, db } from "../../firebase.js";
-import { searchQuery, isLoggedIn, draftMessage, mapKey } from "../../store.js"; // <-- ACT: Importar mapKey
+import { searchQuery, isLoggedIn, draftMessage, mapKey } from "../../store.js";
 import { useStore } from "@nanostores/react";
 import { X, MapPin } from "lucide-react";
+
+// NUEVO IMPORT: Importar la función de randomización desde ControlBar
+import { addRandomOffset } from "./ControlBar.jsx";
 
 // 🚨 CRÍTICO: Carga dinámica para MapComponent.jsx
 const MapComponent = React.lazy(() =>
@@ -34,7 +37,7 @@ const MapComponent = React.lazy(() =>
 const imageCache = {};
 
 // CONFIGURACIÓN DE TIEMPO
-const MESSAGE_LIFETIME = 60000; // 60 segundos
+const MESSAGE_LIFETIME = 86400000; // <-- FIX: 24 horas (Antes 60 segundos)
 
 // CONFIGURACIÓN DE PROXIMIDAD
 const PROXIMITY_DEGREES = 0.05;
@@ -57,15 +60,18 @@ export const UniverseCanvas = () => {
 	const [profilePosts, setProfilePosts] = useState([]);
 	const [loadingProfile, setLoadingProfile] = useState(false);
 
-	// ESTADO: Ubicación del usuario que ve el mapa
-	const [viewerLocation, setViewerLocation] = useState(null);
+	// ESTADO: Ubicación PRECISA del usuario (para cálculo de proximidad)
+	const [preciseLocation, setPreciseLocation] = useState(null);
+	// NUEVO ESTADO: Ubicación RANDOMIZADA para el mapa y el pop-up
+	const [displayLocation, setDisplayLocation] = useState(null);
+
 	const [nearbyThoughtExists, setNearbyThoughtExists] = useState(false);
-	const [currentMapZoom, setCurrentMapZoom] = useState(2); // Estado para el zoom del mapa
+	const [currentMapZoom, setCurrentMapZoom] = useState(2);
 
 	// ACT: Leer estados de los stores
 	const $isLoggedIn = useStore(isLoggedIn);
 	const $draftMessage = useStore(draftMessage);
-	const $mapKey = useStore(mapKey); // <-- NUEVO: Leer mapKey para el fix
+	const $mapKey = useStore(mapKey);
 
 	// Mantenemos openProfile como una función que se pasa al MapComponent
 	const openProfile = async (user) => {
@@ -113,14 +119,19 @@ export const UniverseCanvas = () => {
 		if (typeof window !== "undefined" && "geolocation" in navigator) {
 			navigator.geolocation.getCurrentPosition(
 				(position) => {
-					setViewerLocation({
+					const newPreciseLocation = {
 						lat: position.coords.latitude,
 						lon: position.coords.longitude,
-					});
+					};
+					setPreciseLocation(newPreciseLocation); // Establecer precisa (para proximidad)
+
+					// ACT 2: Randomizar la ubicación para mostrarla en el mapa y en el pop-up draft
+					setDisplayLocation(addRandomOffset(newPreciseLocation));
 				},
 				(error) => {
 					console.warn("Geolocalización del visor denegada o fallida.", error);
-					setViewerLocation(null);
+					setPreciseLocation(null);
+					setDisplayLocation(null);
 				}
 			);
 		}
@@ -172,9 +183,9 @@ export const UniverseCanvas = () => {
 					const countryName = data.countryName || null; // Leer País
 					let isNearby = false;
 
-					// Usamos location (coordenadas precisas) para la lógica de distancia
-					if (viewerLocation && location) {
-						const dist = distanceBetween(viewerLocation, location);
+					// Usamos preciseLocation (coordenadas precisas) para la lógica de distancia
+					if (preciseLocation && location) {
+						const dist = distanceBetween(preciseLocation, location);
 						if (dist < PROXIMITY_DEGREES) {
 							isNearby = true;
 							nearbyFound = true;
@@ -210,7 +221,7 @@ export const UniverseCanvas = () => {
 			setNearbyThoughtExists(nearbyFound && !filterText);
 		});
 		return () => unsubscribe();
-	}, [viewerLocation, openProfileMemo]);
+	}, [preciseLocation, openProfileMemo]); // <-- ACT: usar preciseLocation en dependencias
 
 	// Preparar los mensajes para el mapa (filtrados por búsqueda)
 	const filteredMessages = useMemo(() => {
@@ -240,9 +251,9 @@ export const UniverseCanvas = () => {
 					{/* CRÍTICO: SOLO renderizar si hay usuario (logueado o anónimo) */}
 					{$isLoggedIn ? (
 						<MapComponent
-							key={$mapKey} // <-- FIX CRÍTICO: Usar el contador como key (Forzará un re-montado único)
+							key={$mapKey}
 							messages={filteredMessages}
-							viewerLocation={viewerLocation}
+							viewerLocation={displayLocation} // <-- ACT: Usar la ubicación RANDOMIZADA
 							nearbyThoughtExists={nearbyThoughtExists}
 							openProfile={openProfileMemo}
 							updateZoom={updateZoom}
