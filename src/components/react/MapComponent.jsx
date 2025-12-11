@@ -81,7 +81,7 @@ export const MapComponent = ({
                     <div class="draft-message-tail"></div>
                 </div>
             `,
-			iconSize: [200, 50], // FIX: Dar un tamaño de icono válido a Leaflet
+			iconSize: [200, 50],
 			iconAnchor: [100, 25],
 		});
 
@@ -102,14 +102,14 @@ export const MapComponent = ({
 			minZoom={DEFAULT_ZOOM}
 			style={{ height: "100%", width: "100%", zIndex: 0 }}
 			className="map-container"
-			maxBounds={WORLD_MAX_BOUNDS} // <-- ACT: Aplicar límites
-			maxBoundsViscosity={MAX_BOUNDS_VISCOSITY} // <-- ACT: Límite estricto
+			maxBounds={WORLD_MAX_BOUNDS} // <-- LÍMITES APLICADOS
+			maxBoundsViscosity={MAX_BOUNDS_VISCOSITY} // <-- LÍMITES APLICADOS
 		>
 			{/* Tiles Satelitales (Similar a Google Earth) */}
 			<TileLayer
 				attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
 				url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-				noWrap={true} // <-- ACT: Evitar repetición horizontal (mapa infinito)
+				noWrap={true} // <-- MAPA NO INFINITO
 			/>
 
 			{/* Rastreador de Zoom */}
@@ -149,7 +149,7 @@ export const MapComponent = ({
 								<div className="text-black text-sm font-mono max-w-sm w-48 p-1">
 									<div className="flex items-center gap-3 border-b pb-2 mb-2 border-zinc-200">
 										<img
-											src={p.photoURL || "/target-user.svg"} // <-- Fallback correcto para la imagen (punto 1)
+											src={p.photoURL || "/target-user.svg"} // <-- Fallback correcto para la imagen (necesita el archivo SVG)
 											alt={p.displayName}
 											className="w-10 h-10 rounded-full border border-zinc-400 object-cover"
 										/>
