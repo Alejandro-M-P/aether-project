@@ -52,7 +52,8 @@ const DEFAULT_AVATAR = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/
 
 export const UniverseCanvas = () => {
 	const particlesRef = useRef([]);
-	const isInitialLoad = useRef(true); // Flag para evitar el toast en la carga inicial
+	// Flag para evitar el toast en la carga inicial
+	const isInitialLoad = useRef(true);
 
 	const [selectedProfile, setSelectedProfile] = useState(null);
 	const [profilePosts, setProfilePosts] = useState([]);
@@ -63,9 +64,8 @@ export const UniverseCanvas = () => {
 	const [nearbyThoughtExists, setNearbyThoughtExists] = useState(false);
 	const [currentMapZoom, setCurrentMapZoom] = useState(DEFAULT_ZOOM);
 
-	// NUEVO ESTADO PARA EL TOAST DE MENSAJE
+	// ESTADO PARA EL TOAST DE MENSAJE
 	const [newThoughtToast, setNewThoughtToast] = useState(null);
-	const prevNewestMessageId = useRef(null); // Para evitar duplicados en el toast
 
 	// Mantenemos openProfile como una función que se pasa al MapComponent
 	const openProfile = async (user) => {
@@ -106,8 +106,7 @@ export const UniverseCanvas = () => {
 
 	// EFECTO PRINCIPAL DE CONEXIÓN Y FILTROS
 	useEffect(() => {
-		// CORRECCIÓN CRÍTICA: Resetea el filtro de búsqueda al cargar el componente
-		// Esto garantiza que el filtro no esté activo al entrar a la aplicación.
+		// CORRECCIÓN CRÍTICA 1: Resetea el filtro de búsqueda al cargar para ver todo
 		searchQuery.set("");
 
 		if (!auth.currentUser) {
@@ -140,32 +139,35 @@ export const UniverseCanvas = () => {
 		let nearbyFound = false;
 
 		const unsubscribe = onSnapshot(q, (snapshot) => {
-			// Lógica para el Toast (Detección de Nuevo Mensaje - Instantánea)
-			// Se activa el toast sin la restricción de tiempo.
-			if (!isInitialLoad.current && snapshot.docs.length > 0) {
-				const newestDoc = snapshot.docs[0];
-				const newestMessageData = newestDoc.data();
-				const newestMessageId = newestDoc.id;
+			// CORRECCIÓN CRÍTICA 2: Detección Instantánea y Confiable de Nuevos Mensajes (Toast)
+			snapshot.docChanges().forEach((change) => {
+				// Si el tipo de cambio es 'added' (nuevo) y NO es la carga inicial
+				if (change.type === "added" && !isInitialLoad.current) {
+					const data = change.doc.data();
 
-				// Solo si es un mensaje diferente al que ya hemos notificado
-				if (newestMessageId !== prevNewestMessageId.current) {
-					// Activamos el toast instantáneo
-					setNewThoughtToast({
-						text: newestMessageData.message,
-						displayName: newestMessageData.displayName,
-					});
+					// Solo notificar si el post es muy reciente (ej. en los últimos 15 segundos)
+					const timestampMs = data.timestamp
+						? data.timestamp.toMillis()
+						: Date.now();
 
-					// Limpiar el toast después de 5 segundos
-					setTimeout(() => {
-						setNewThoughtToast(null);
-					}, 5000);
+					if (Date.now() - timestampMs < 15000) {
+						setNewThoughtToast({
+							text: data.message,
+							displayName: data.displayName,
+						});
 
-					prevNewestMessageId.current = newestMessageId;
+						// Limpiar el toast después de 5 segundos
+						setTimeout(() => {
+							setNewThoughtToast(null);
+						}, 5000);
+					}
 				}
-			}
+			});
 
 			// Marcar que la carga inicial terminó después de la primera ejecución
-			isInitialLoad.current = false;
+			if (isInitialLoad.current) {
+				isInitialLoad.current = false;
+			}
 
 			// COMIENZO DE LA LÓGICA DE PROCESAMIENTO DE MARCADORES (EXISTENTE)
 
@@ -253,21 +255,19 @@ export const UniverseCanvas = () => {
 	const filteredMessages = useMemo(() => {
 		const filterText = searchQuery.get().toLowerCase().trim();
 
-		// CORRECCIÓN CRÍTICA: Ignorar el filtro si estamos en el zoom mundial (DEFAULT_ZOOM=2)
-		// Esto asegura que al entrar, se muestren todos los mensajes AUNQUE la búsqueda esté activada.
-		if (currentMapZoom <= DEFAULT_ZOOM) {
+		// CORRECCIÓN CRÍTICA 3: Muestra todos los mensajes si el filtro está vacío, y filtra solo si hay texto.
+		if (!filterText) {
 			return particlesRef.current;
 		}
 
-		// Si hay filtro Y el zoom es alto (para búsqueda local), aplicamos el filtro.
+		// Si hay un filtro activo, aplicamos el filtro.
 		return particlesRef.current.filter((p) => {
-			if (!filterText) return true;
 			return (
 				p.text.toLowerCase().includes(filterText) ||
 				p.category.toLowerCase().includes(filterText)
 			);
 		});
-	}, [searchQuery.get(), currentMapZoom]);
+	}, [searchQuery.get()]);
 
 	return (
 		<>
