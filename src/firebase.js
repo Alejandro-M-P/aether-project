@@ -5,9 +5,7 @@ import { getStorage } from "firebase/storage";
 
 // Lee los valores de las variables de entorno (PUBLIC_)
 const firebaseConfig = {
-   // ...
-apiKey: AIzaSyCqT7j462Ui4QVogup6RGym-g2iHHer4qE
-// ...
+    apiKey: import.meta.env.PUBLIC_FIREBASE_API_KEY,
     authDomain: import.meta.env.PUBLIC_FIREBASE_AUTH_DOMAIN,
     projectId: import.meta.env.PUBLIC_FIREBASE_PROJECT_ID,
     storageBucket: import.meta.env.PUBLIC_FIREBASE_STORAGE_BUCKET,
