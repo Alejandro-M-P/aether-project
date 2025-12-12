@@ -23,15 +23,22 @@ export const MapComponent = ({ messages = [], openProfile }) => {
     const markersRef = useRef({});
 
     // 1. CARGA
+ 
+
+
     useEffect(() => {
         if (typeof window !== "undefined") {
             Promise.all([import("react-globe.gl"), import("three")])
                 .then(([globeMod, threeMod]) => {
-                    setGlobePackage(() => globeMod.default);
+                    // FIX: Uso de .default?.default para manejar la resolución de módulos CJS/ESM
+                    const GlobeComponent = globeMod.default?.default || globeMod.default; 
+                    setGlobePackage(() => GlobeComponent);
                     setThreePackage(threeMod);
                 });
         }
     }, []);
+
+// ...
 
     // 2. RESIZE
     useEffect(() => {
