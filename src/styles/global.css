@@ -1,6 +1,8 @@
 @tailwind base;
 @tailwind components;
-@tailwind utilities; /* ⬅️ Reemplazamos @import "tailwindcss"; por las 3 directivas */
+@tailwind utilities; 
+
+/* ...el resto de tu código CSS... */
 
 /* BASE */
 body {
