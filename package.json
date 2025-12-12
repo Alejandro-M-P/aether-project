@@ -4,14 +4,14 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "astro dev",
-    "build": "npx astro build",  
+    "build": "npx astro build",
     "preview": "astro preview",
     "astro": "astro"
   },
   "dependencies": {
     "@astrojs/react": "^4.4.2",
     "@nanostores/react": "^1.0.0",
-    "@tailwindcss/vite": "^4.1.17",
+    "@tailwindcss/vite": "^4.1.18",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "astro": "^5.16.4",
@@ -21,9 +21,9 @@
     "nanostores": "^1.1.0",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
-    "react-leaflet": "^5.0.0",
-    "tailwindcss": "^4.1.17",
     "react-globe.gl": "^2.37.0",
-    "three": "0.152.0" 
+    "react-leaflet": "^5.0.0",
+    "tailwindcss": "^4.1.18",
+    "three": "0.152.0"
   }
 }
