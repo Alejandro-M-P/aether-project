@@ -1,16 +1,13 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
+
 import react from '@astrojs/react';
-import tailwind from '@astrojs/tailwind'; 
+import tailwind from '@astrojs/tailwind'; // <-- Importar la integración oficial
 
 // https://astro.build/config
 export default defineConfig({
-  integrations: [react(), tailwind()], 
+  integrations: [react(), tailwind()], // <-- Añadir tailwind() aquí
 
-  vite: {
-    // Mantenemos la única configuración que resuelve el problema de three.js
-    ssr: {
-      noExternal: ['three', 'react-globe.gl', 'three-globe']
-    }
-  }
+  // Si no tienes otros plugins, elimina la sección vite:
+  // vite: {} 
 });

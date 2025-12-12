@@ -22,23 +22,18 @@ export const MapComponent = ({ messages = [], openProfile }) => {
     const [globeReady, setGlobeReady] = useState(false);
     const markersRef = useRef({});
 
-    // 1. CARGA
- 
-
-
+    // 1. CARGA (FIX para que Astro/Vite reconozca la librería)
     useEffect(() => {
         if (typeof window !== "undefined") {
             Promise.all([import("react-globe.gl"), import("three")])
                 .then(([globeMod, threeMod]) => {
-                    // FIX: Uso de .default?.default para manejar la resolución de módulos CJS/ESM
+                    // FIX: Uso de .default?.default o .default
                     const GlobeComponent = globeMod.default?.default || globeMod.default; 
                     setGlobePackage(() => GlobeComponent);
                     setThreePackage(threeMod);
                 });
         }
     }, []);
-
-// ...
 
     // 2. RESIZE
     useEffect(() => {

@@ -1,8 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities; 
 
-/* ...el resto de tu código CSS... */
 
 /* BASE */
 body {
@@ -39,11 +35,4 @@ body {
 /* CLASES DE UTILIDAD PARA LEAFLET (Si quedan residuos) */
 .leaflet-container {
 	background: black !important;
-}
-
-/* NUEVA UTILIDAD DE DISEÑO (Fondo de puntos sutil para la landing) */
-.dot-grid-bg {
-    background-color: black;
-    background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-    background-size: 30px 30px;
 }
