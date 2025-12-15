@@ -6,8 +6,7 @@ import { db, auth } from "../../firebase.js";
 import { useStore } from "@nanostores/react";
 import { searchQuery } from "../../store.js";
 
-// Radio de aleatoriedad (~5-6km).
-// Esto asegura que el punto caiga en la misma zona (Valencia) pero no en tu casa.
+// Radio de privacidad (~5km)
 const RANDOM_RADIUS_DEGREE = 0.05;
 
 const addRandomOffset = (location) => {
@@ -29,10 +28,11 @@ const getPreciseLocation = () => {
 						lon: position.coords.longitude,
 					}),
 				(error) => {
-					console.warn("Error geo:", error);
+					console.warn("Error GPS:", error);
+					// Si falla el GPS, devuelve null sin romper nada
 					resolve(null);
 				},
-				{ enableHighAccuracy: false, timeout: 5000, maximumAge: 0 }
+				{ enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
 			);
 		} else {
 			resolve(null);
@@ -40,19 +40,40 @@ const getPreciseLocation = () => {
 	});
 };
 
+// MEJORA: Lógica robusta para encontrar el nombre de la ciudad
 const reverseGeocode = async (lat, lon) => {
 	try {
 		const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
-		const response = await fetch(url, { headers: { "Accept-Language": "es" } });
+		const response = await fetch(url, {
+			headers: {
+				"Accept-Language": "es",
+				"User-Agent": "AetherApp/1.0", // IMPORTANTE para que no bloqueen
+			},
+		});
 		const data = await response.json();
 		const address = data.address;
+
 		if (address) {
+			// Buscamos el nombre en orden de preferencia
 			const city =
-				address.city || address.town || address.village || address.municipality;
-			return { cityName: city || null, countryName: address.country || null };
+				address.city ||
+				address.town ||
+				address.village ||
+				address.municipality ||
+				address.city_district ||
+				address.county ||
+				address.state_district;
+
+			const country = address.country;
+
+			return {
+				cityName: city || null,
+				countryName: country || null,
+			};
 		}
 		return { cityName: null, countryName: null };
 	} catch (error) {
+		console.error("Error API Mapas:", error);
 		return { cityName: null, countryName: null };
 	}
 };
@@ -71,21 +92,23 @@ export default function ControlBar() {
 		const user = auth.currentUser;
 		setIsSending(true);
 
-		let preciseLocation = await getPreciseLocation();
-		let randomizedLocation = null;
-		let geoNames = { cityName: null, countryName: null };
-
-		if (preciseLocation) {
-			// 1. OBTENER NOMBRE REAL DE LA CIUDAD (Antes de aleatorizar)
-			// Así sale "Valencia" aunque el punto aleatorio caiga en un campo de las afueras.
-			geoNames = await reverseGeocode(preciseLocation.lat, preciseLocation.lon);
-
-			// 2. ALEATORIZAR COORDENADAS
-			// Movemos el punto unos km para proteger la privacidad
-			randomizedLocation = addRandomOffset(preciseLocation);
-		}
-
 		try {
+			// 1. Intentamos obtener GPS
+			let preciseLocation = await getPreciseLocation();
+			let randomizedLocation = null;
+			let geoNames = { cityName: null, countryName: null };
+
+			if (preciseLocation) {
+				// 2. Primero sacamos el nombre REAL (Valencia)
+				geoNames = await reverseGeocode(
+					preciseLocation.lat,
+					preciseLocation.lon
+				);
+
+				// 3. Luego falseamos la ubicación para el mapa (Privacidad)
+				randomizedLocation = addRandomOffset(preciseLocation);
+			}
+
 			const thoughtData = {
 				message: msg,
 				category: cat || "general",
@@ -96,8 +119,8 @@ export default function ControlBar() {
 			};
 
 			if (randomizedLocation) {
-				thoughtData.location = randomizedLocation; // Guardamos la coord falsa
-				thoughtData.cityName = geoNames.cityName; // Guardamos la ciudad real
+				thoughtData.location = randomizedLocation;
+				thoughtData.cityName = geoNames.cityName;
 				thoughtData.countryName = geoNames.countryName;
 			}
 
@@ -107,7 +130,7 @@ export default function ControlBar() {
 			setOpen(false);
 		} catch (error) {
 			console.error("Error enviando:", error);
-			alert("Error enviando. Inténtalo de nuevo.");
+			alert("Error al enviar. Comprueba tu conexión.");
 		} finally {
 			setIsSending(false);
 		}
