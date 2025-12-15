@@ -19,7 +19,8 @@ const CATEGORY_COLORS = {
 // Límite de caracteres para la vista previa
 const MAX_TEXT_LENGTH = 300;
 
-export const MapComponent = ({ messages = [] }) => {
+// AÑADIDO: openProfile a las props
+export const MapComponent = ({ messages = [], openProfile }) => {
 	const globeEl = useRef();
 	const [GlobePackage, setGlobePackage] = useState(null);
 	const [ThreePackage, setThreePackage] = useState(null);
@@ -196,7 +197,6 @@ export const MapComponent = ({ messages = [] }) => {
                                     width: 320px;
                                     background-color: #09090b;
                                     border: 1px solid #27272a;
-                                    /* Ajuste de redondez estructural para el popup */
                                     border-radius: 20px;
                                     pointer-events: auto;
                                     cursor: default;
@@ -212,11 +212,9 @@ export const MapComponent = ({ messages = [] }) => {
                                         z-index: 1001;
                                     ">✕</div>
 
-                                    <div style="padding: 12px 20px; border-bottom: 1px solid #27272a; background: rgba(24, 24, 27, 0.5); 
-                                        /* Ajuste de redondez para coincidir con el contenedor */
-                                        border-top-left-radius: 20px; border-top-right-radius: 20px; flex-shrink: 0;">
+                                    <div style="padding: 12px 20px; border-bottom: 1px solid #27272a; background: rgba(24, 24, 27, 0.5); border-top-left-radius: 20px; border-top-right-radius: 20px; flex-shrink: 0;">
                                         <div style="display: flex; justify-content: space-between; align-items: center;">
-                                            <span style="font-size: 10px; color: #22d3ee; font-family: monospace; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px;">
+                                            <span class="js-display-name-btn" style="font-size: 10px; color: #22d3ee; font-family: monospace; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; cursor: pointer; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px;">
                                                 ${
 																									d.displayName
 																										? d.displayName.split(
@@ -225,9 +223,7 @@ export const MapComponent = ({ messages = [] }) => {
 																										: "ANÓNIMO"
 																								}
                                             </span>
-                                            <span style="font-size: 9px; padding: 2px 6px; 
-                                                /* Máxima redondez para el badge */
-                                                border-radius: 999px; background: ${color}20; color: ${color}; font-weight: bold;">
+                                            <span style="font-size: 9px; padding: 2px 6px; border-radius: 999px; background: ${color}20; color: ${color}; font-weight: bold;">
                                                 ${category}
                                             </span>
                                         </div>
@@ -260,7 +256,6 @@ export const MapComponent = ({ messages = [] }) => {
 												cursor: pointer;
 												letter-spacing: 1px;
                                                 padding: 4px 0;
-                                                /* Máxima redondez para el botón "Leer todo" */
                                                 border: 1px solid #22d3ee80;
                                                 background: #22d3ee10;
                                                 border-radius: 999px; 
@@ -303,6 +298,8 @@ export const MapComponent = ({ messages = [] }) => {
 							wrapper.querySelector(".js-close-btn"),
 							wrapper.querySelector(".js-read-more"),
 							wrapper.querySelector(".js-message-text"),
+                            // AÑADIDO: para evitar que el clic en el nombre arrastre el mapa
+                            wrapper.querySelector(".js-display-name-btn"), 
 						];
 
 						interactables.forEach((el) => {
@@ -340,7 +337,21 @@ export const MapComponent = ({ messages = [] }) => {
 							handleSmartZoom(d.location.lat, d.location.lon);
 						};
 					}
-
+                    
+                    // AÑADIDO: Manejador de clic para el nombre (abrir perfil)
+					const displayNameBtn = el.querySelector(".js-display-name-btn");
+					if (displayNameBtn) {
+						displayNameBtn.onclick = (e) => {
+							e.stopPropagation();
+							// Llama a la función openProfile pasada desde Islands.jsx
+							openProfile({
+								uid: d.uid,
+								displayName: d.displayName,
+								photoURL: d.photoURL,
+							});
+						};
+					}
+                    
 					const closeBtn = el.querySelector(".js-close-btn");
 					if (closeBtn) {
 						closeBtn.onclick = (e) => {
