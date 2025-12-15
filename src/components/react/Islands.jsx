@@ -1,3 +1,5 @@
+// File: alejandro-m-p/aether-project/aether-project-main/src/components/react/Islands.jsx
+
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import {
 	collection,
@@ -195,12 +197,12 @@ export const UniverseCanvas = () => {
 
 	return (
 		<>
-			{/* --- NOTIFICACIÓN DE NUEVO MENSAJE (Estilo Aplicación/Fallback) --- */}
+			{/* --- NOTIFICACIÓN DE NUEVO MENSAJE (rounded-xl) --- */}
 			{notification && (
 				<div className="fixed top-4 left-1/2 -translate-x-1/2 z-[110] p-4 max-w-sm w-full pointer-events-none">
 					<div
-						// Esquina estandarizada: rounded-lg
-						className="bg-cyan-900/80 backdrop-blur-md border border-cyan-500/50 text-white p-4 rounded-lg shadow-xl animate-in slide-in-from-top-full duration-300 flex items-start gap-4 pointer-events-auto"
+						// Contenedor de notificación: rounded-xl (Estructural)
+						className="bg-cyan-900/80 backdrop-blur-md border border-cyan-500/50 text-white p-4 rounded-xl shadow-xl animate-in slide-in-from-top-full duration-300 flex items-start gap-4 pointer-events-auto"
 						role="alert"
 					>
 						<Bell className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
@@ -246,8 +248,8 @@ export const UniverseCanvas = () => {
 			{selectedProfile && (
 				<div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
 					<div 
-					// Esquina estandarizada: rounded-lg
-					className="bg-zinc-950/95 border border-cyan-500/20 p-6 w-full max-w-md relative shadow-2xl rounded-lg">
+					// Contenedor principal: rounded-xl (Estructural)
+					className="bg-zinc-950/95 border border-cyan-500/20 p-6 w-full max-w-md relative shadow-2xl rounded-xl">
 						<button
 							onClick={() => setSelectedProfile(null)}
 							className="absolute top-4 right-4 text-zinc-500 hover:text-white"
@@ -272,8 +274,8 @@ export const UniverseCanvas = () => {
 								profilePosts.map((p) => (
 									<div
 										key={p.id}
-										// Esquina estandarizada: rounded-lg
-										className="bg-zinc-900 p-3 rounded-lg border border-zinc-800"
+										// Post item: rounded-full
+										className="bg-zinc-900 p-3 rounded-full border border-zinc-800"
 									>
 										<p className="text-zinc-300 text-sm italic">
 											"{p.message}"

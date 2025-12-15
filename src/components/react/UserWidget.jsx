@@ -1,3 +1,5 @@
+// File: alejandro-m-p/aether-project/aether-project-main/src/components/react/UserWidget.jsx
+
 import React, { useState, useEffect, useRef } from "react";
 import {
 	X,
@@ -62,6 +64,7 @@ const ProfileModal = ({ user, onClose }) => {
 
 	return (
 		<div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
+			{/* Contenedor principal: rounded-xl (Estructural) */}
 			<div className="bg-zinc-950 border border-zinc-800 w-full max-w-md relative rounded-xl shadow-2xl p-6">
 				<button
 					onClick={onClose}
@@ -95,7 +98,8 @@ const ProfileModal = ({ user, onClose }) => {
 							<button
 								onClick={() => fileInputRef.current?.click()}
 								disabled={isUploading}
-								className="flex-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs py-2 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+								// Botón: rounded-full
+								className="flex-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs py-2 rounded-full flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
 							>
 								{isUploading ? (
 									<span className="animate-pulse">Subiendo...</span>
@@ -119,7 +123,8 @@ const ProfileModal = ({ user, onClose }) => {
 								<ImageIcon size={14} className="text-zinc-500" />
 							</div>
 							<input
-								className="w-full bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs py-2 pl-9 pr-3 rounded-lg focus:outline-none focus:border-cyan-500/50 placeholder-zinc-600 font-mono"
+								// Input: rounded-full
+								className="w-full bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs py-2 pl-9 pr-3 rounded-full focus:outline-none focus:border-cyan-500/50 placeholder-zinc-600 font-mono"
 								value={newPhotoURL}
 								onChange={(e) => setNewPhotoURL(e.target.value)}
 								placeholder="O pega una URL de imagen..."
@@ -137,7 +142,8 @@ const ProfileModal = ({ user, onClose }) => {
 								<User size={14} className="text-zinc-500" />
 							</div>
 							<input
-								className="w-full bg-zinc-900 border border-zinc-800 text-white text-sm py-2 pl-9 pr-3 rounded-lg focus:outline-none focus:border-cyan-500/50 placeholder-zinc-600 font-mono"
+								// Input: rounded-full
+								className="w-full bg-zinc-900 border border-zinc-800 text-white text-sm py-2 pl-9 pr-3 rounded-full focus:outline-none focus:border-cyan-500/50 placeholder-zinc-600 font-mono"
 								value={newDisplayName}
 								onChange={(e) => setNewDisplayName(e.target.value)}
 								placeholder="Tu nombre..."
@@ -149,7 +155,8 @@ const ProfileModal = ({ user, onClose }) => {
 					<div className="pt-4 border-t border-zinc-800 flex flex-col gap-3">
 						<button
 							onClick={handleSave}
-							className="w-full bg-cyan-900/20 hover:bg-cyan-800/30 border border-cyan-500/30 text-cyan-400 py-3 rounded-lg text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:shadow-[0_0_15px_rgba(6,182,212,0.2)]"
+							// Botón: rounded-full
+							className="w-full bg-cyan-900/20 hover:bg-cyan-800/30 border border-cyan-500/30 text-cyan-400 py-3 rounded-full text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:shadow-[0_0_15px_rgba(6,182,212,0.2)]"
 						>
 							<Save size={14} /> Guardar Cambios
 						</button>
