@@ -27,7 +27,8 @@ const MapComponent = React.lazy(() =>
 );
 
 // Tiempo de vida de mensajes (ajustable)
-const MESSAGE_LIFETIME = 7200000 * 12;
+// CAMBIADO: 7200000 * 12 (24 horas) a 3600000 (1 hora)
+const MESSAGE_LIFETIME = 3600000; // 1 hora en milisegundos
 
 // --- LÓGICA DE NOTIFICACIONES NATIVAS ---
 const requestNotificationPermission = () => {
