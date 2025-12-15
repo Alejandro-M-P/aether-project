@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { Search, X, MapPin } from "lucide-react";
+import { Filter, X, MapPin, ChevronUp, Check, Globe } from "lucide-react";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 import { db, auth } from "../../firebase.js";
 import { useStore } from "@nanostores/react";
-import { searchQuery } from "../../store.js";
+import {
+	searchQuery,
+	availableCategories,
+	isPickingLocation,
+	pickedCoordinates,
+} from "../../store.js";
 
 const RANDOM_RADIUS_DEGREE = 0.01;
 
@@ -17,29 +22,7 @@ const addRandomOffset = (location) => {
 	return newLocation;
 };
 
-// 1. GPS
-const getPreciseLocation = () => {
-	return new Promise((resolve) => {
-		if ("geolocation" in navigator) {
-			navigator.geolocation.getCurrentPosition(
-				(position) =>
-					resolve({
-						lat: position.coords.latitude,
-						lon: position.coords.longitude,
-					}),
-				(error) => {
-					console.warn("GPS error:", error);
-					resolve(null);
-				},
-				{ enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-			);
-		} else {
-			resolve(null);
-		}
-	});
-};
-
-// 2. Coordenadas -> Nombre
+// --- LÓGICA DE NOMBRES MEJORADA (PRIORIDAD ISLAS) ---
 const reverseGeocode = async (lat, lon) => {
 	try {
 		const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
@@ -47,21 +30,47 @@ const reverseGeocode = async (lat, lon) => {
 			headers: { "Accept-Language": "es", "User-Agent": "AetherApp/1.0" },
 		});
 		const data = await response.json();
-		return data.address
-			? data.address.city ||
-					data.address.town ||
-					data.address.municipality ||
-					""
-			: "";
+		const addr = data.address;
+
+		if (addr) {
+			// 1. El lugar concreto
+			const specific =
+				addr.city ||
+				addr.town ||
+				addr.village ||
+				addr.hamlet ||
+				addr.municipality;
+
+			// 2. El contexto (Isla mata a todo lo demás)
+			// A veces Nominatim devuelve la isla en 'island', 'archipelago' o incluso 'region'
+			let context = addr.island || addr.archipelago;
+
+			// Si NO es isla, usamos el país (ej: España)
+			if (!context) {
+				context = addr.country;
+			}
+
+			// 3. Formato Final
+			if (specific && context) {
+				return `${specific} (${context})`; // Ej: "Palma (Mallorca)" o "Valencia (España)"
+			}
+			// Fallbacks
+			if (specific) return specific;
+			if (context) return context;
+
+			return "Ubicación Marcada";
+		}
+		return "Ubicación Marcada";
 	} catch (error) {
-		return "";
+		return "Ubicación Marcada";
 	}
 };
 
-// 3. Nombre -> Coordenadas
 const getCoordsFromCityName = async (cityName) => {
 	try {
-		const url = `https://nominatim.openstreetmap.org/search?format=json&q=${cityName}&limit=1`;
+		// Limpiamos paréntesis para que la búsqueda no se líe
+		const cleanName = cityName.replace(/[()]/g, "");
+		const url = `https://nominatim.openstreetmap.org/search?format=json&q=${cleanName}&limit=1`;
 		const response = await fetch(url, {
 			headers: { "User-Agent": "AetherApp/1.0" },
 		});
@@ -77,31 +86,46 @@ const getCoordsFromCityName = async (cityName) => {
 
 export default function ControlBar() {
 	const $searchQuery = useStore(searchQuery);
+	const $availableCategories = useStore(availableCategories);
+	const $isPicking = useStore(isPickingLocation);
+	const $pickedCoordinates = useStore(pickedCoordinates);
+
 	const [open, setOpen] = useState(false);
+	const [isCatMenuOpen, setIsCatMenuOpen] = useState(false);
+
 	const [msg, setMsg] = useState("");
 	const [cat, setCat] = useState("");
 
-	// Estados Ubicación
 	const [manualCity, setManualCity] = useState("");
-	const [autoLocation, setAutoLocation] = useState(null);
-	const [isLocating, setIsLocating] = useState(false);
+	const [selectedExactLocation, setSelectedExactLocation] = useState(null);
 	const [isSending, setIsSending] = useState(false);
 
 	useEffect(() => {
-		if (open) {
-			setIsLocating(true);
-			setManualCity("");
-			(async () => {
-				const loc = await getPreciseLocation();
-				if (loc) {
-					setAutoLocation(loc);
-					const name = await reverseGeocode(loc.lat, loc.lon);
-					setManualCity(name || "");
+		if ($pickedCoordinates) {
+			setOpen(true);
+			setSelectedExactLocation($pickedCoordinates);
+			setManualCity("Identificando...");
+
+			reverseGeocode($pickedCoordinates.lat, $pickedCoordinates.lng).then(
+				(name) => {
+					setManualCity(name);
 				}
-				setIsLocating(false);
-			})();
+			);
+
+			pickedCoordinates.set(null);
 		}
-	}, [open]);
+	}, [$pickedCoordinates]);
+
+	useEffect(() => {
+		const closeMenu = () => setIsCatMenuOpen(false);
+		if (isCatMenuOpen) window.addEventListener("click", closeMenu);
+		return () => window.removeEventListener("click", closeMenu);
+	}, [isCatMenuOpen]);
+
+	const handlePickLocation = () => {
+		setOpen(false);
+		isPickingLocation.set(true);
+	};
 
 	const send = async (e) => {
 		e.preventDefault();
@@ -114,32 +138,36 @@ export default function ControlBar() {
 			let finalCoords = null;
 			let finalCityName = manualCity.trim();
 
-			// CASO 1: Has escrito una ciudad (ej. "Valencia")
-			if (finalCityName) {
+			if (selectedExactLocation) {
+				finalCoords = selectedExactLocation;
+			} else if (finalCityName) {
 				const coordsFromName = await getCoordsFromCityName(finalCityName);
 				if (coordsFromName) {
 					finalCoords = coordsFromName;
 				} else {
-					// SI FALLA AL BUSCAR "VALENCIA", NO USAMOS EL GPS AUTOMÁTICO
-					// PARAMOS Y AVISAMOS AL USUARIO.
-					alert(
-						`❌ No encuentro la ciudad "${finalCityName}" en el mapa.\n\nPrueba a escribirlo de otra forma (ej: "Valencia, España").`
-					);
+					alert(`❌ No encuentro "${finalCityName}". Usa el mapa 🌍.`);
 					setIsSending(false);
 					return;
 				}
-			}
-			// CASO 2: Campo vacío (Usamos GPS automático)
-			else {
-				if (autoLocation) {
-					finalCoords = autoLocation;
-					const autoName = await reverseGeocode(
-						autoLocation.lat,
-						autoLocation.lon
-					);
+			} else {
+				const getGPS = () =>
+					new Promise((resolve) => {
+						if (!navigator.geolocation) resolve(null);
+						navigator.geolocation.getCurrentPosition(
+							(p) =>
+								resolve({ lat: p.coords.latitude, lon: p.coords.longitude }),
+							() => resolve(null),
+							{ timeout: 4000 }
+						);
+					});
+
+				const gps = await getGPS();
+				if (gps) {
+					finalCoords = gps;
+					const autoName = await reverseGeocode(gps.lat, gps.lon);
 					finalCityName = autoName || "Localizado";
 				} else {
-					alert("⚠️ No sé dónde ponerte. Por favor escribe tu ciudad.");
+					alert("⚠️ No detecto GPS. Selecciona en el mapa.");
 					setIsSending(false);
 					return;
 				}
@@ -148,9 +176,7 @@ export default function ControlBar() {
 			if (!finalCityName || finalCityName === "undefined")
 				finalCityName = "Localizado";
 
-			const randomizedLocation = finalCoords
-				? addRandomOffset(finalCoords)
-				: null;
+			const randomizedLocation = addRandomOffset(finalCoords);
 
 			const thoughtData = {
 				message: msg,
@@ -167,28 +193,100 @@ export default function ControlBar() {
 			setMsg("");
 			setCat("");
 			setManualCity("");
+			setSelectedExactLocation(null);
 			setOpen(false);
 		} catch (error) {
 			console.error("Error enviando:", error);
-			alert("Error enviando mensaje.");
+			alert("Error enviando.");
 		} finally {
 			setIsSending(false);
 		}
 	};
 
+	if ($isPicking) {
+		return (
+			<div className="fixed bottom-8 left-0 right-0 z-50 flex justify-center pointer-events-none">
+				<div className="bg-black/80 backdrop-blur-md border border-cyan-500/50 text-cyan-400 px-6 py-3 rounded-full shadow-[0_0_20px_rgba(6,182,212,0.3)] pointer-events-auto animate-pulse flex items-center gap-3">
+					<Globe className="w-5 h-5 animate-spin-slow" />
+					<span className="font-mono text-sm tracking-widest uppercase">
+						Haz clic en el mapa...
+					</span>
+					<button
+						onClick={() => {
+							isPickingLocation.set(false);
+							setOpen(true);
+						}}
+						className="ml-2 hover:text-white transition-colors"
+					>
+						<X size={16} />
+					</button>
+				</div>
+			</div>
+		);
+	}
+
 	return (
 		<>
 			<footer className="fixed bottom-0 left-0 right-0 z-50 w-full px-2 md:px-4 py-4 md:py-8 pointer-events-none flex justify-center">
-				<div className="pointer-events-auto flex items-center bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 rounded-full shadow-[0_0_40px_rgba(0,0,0,0.5)] transition-all w-[98%] max-w-lg group">
-					<div className="flex items-center gap-2 md:gap-3 w-1/2 pl-4 pr-2 py-2 border-r border-zinc-700/50">
-						<Search className="h-3 w-3 md:h-4 md:w-4 text-white/40 group-hover:text-cyan-400 transition-colors" />
-						<input
-							type="text"
-							value={$searchQuery}
-							onChange={(e) => searchQuery.set(e.target.value)}
-							className="w-full bg-transparent border-none text-white/90 text-xs md:text-sm font-mono placeholder-white/30 focus:outline-none h-full"
-							placeholder="Buscar..."
+				<div className="pointer-events-auto flex items-center bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 rounded-full shadow-[0_0_40px_rgba(0,0,0,0.5)] transition-all w-[98%] max-w-lg group relative">
+					<div
+						className="flex items-center gap-3 w-1/2 pl-6 pr-4 py-4 border-r border-zinc-700/50 cursor-pointer hover:bg-white/5 transition-colors rounded-l-full relative"
+						onClick={(e) => {
+							e.stopPropagation();
+							setIsCatMenuOpen(!isCatMenuOpen);
+						}}
+					>
+						<Filter
+							className={`h-4 w-4 ${
+								$searchQuery ? "text-cyan-400" : "text-zinc-500"
+							} transition-colors`}
 						/>
+						<div className="flex-1 min-w-0">
+							<span
+								className={`block text-xs font-mono tracking-widest uppercase truncate ${
+									$searchQuery ? "text-white" : "text-zinc-500"
+								}`}
+							>
+								{$searchQuery || "CATEGORÍAS"}
+							</span>
+						</div>
+						<ChevronUp
+							className={`w-3 h-3 text-zinc-600 transition-transform duration-300 ${
+								isCatMenuOpen ? "rotate-180" : ""
+							}`}
+						/>
+
+						{isCatMenuOpen && (
+							<div className="absolute bottom-[130%] left-0 w-full bg-zinc-950/95 backdrop-blur-xl border border-zinc-800 rounded-xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom-2 fade-in duration-200">
+								<div className="max-h-60 overflow-y-auto custom-scrollbar p-1">
+									<button
+										onClick={() => searchQuery.set("")}
+										className="w-full text-left px-4 py-3 hover:bg-zinc-800/50 rounded-lg flex items-center justify-between group transition-colors"
+									>
+										<span className="text-xs font-mono text-zinc-400 group-hover:text-white uppercase tracking-wider">
+											Todas
+										</span>
+										{!$searchQuery && (
+											<Check className="w-3 h-3 text-cyan-400" />
+										)}
+									</button>
+									{$availableCategories.map((c) => (
+										<button
+											key={c}
+											onClick={() => searchQuery.set(c.toLowerCase())}
+											className="w-full text-left px-4 py-3 hover:bg-zinc-800/50 rounded-lg flex items-center justify-between group transition-colors"
+										>
+											<span className="text-xs font-mono text-zinc-300 group-hover:text-cyan-400 uppercase tracking-wider">
+												{c}
+											</span>
+											{$searchQuery.toUpperCase() === c.toUpperCase() && (
+												<Check className="w-3 h-3 text-cyan-400" />
+											)}
+										</button>
+									))}
+								</div>
+							</div>
+						)}
 					</div>
 					<button
 						onClick={() => setOpen(true)}
@@ -224,20 +322,28 @@ export default function ControlBar() {
 										value={cat}
 										onChange={(e) => setCat(e.target.value)}
 										placeholder="CANAL"
-										className="w-1/2 bg-transparent border-b border-white/10 py-2 text-white/60 text-[10px] md:text-xs font-mono tracking-widest uppercase focus:outline-none focus:border-emerald-500/50 text-center"
+										className="w-1/3 bg-transparent border-b border-white/10 py-2 text-white/60 text-[10px] md:text-xs font-mono tracking-widest uppercase focus:outline-none focus:border-emerald-500/50 text-center"
 									/>
-									<div className="w-1/2 relative">
-										<MapPin className="absolute left-0 top-2 w-3 h-3 text-white/30" />
+
+									<div className="w-2/3 relative flex items-center">
+										<MapPin className="absolute left-0 w-3 h-3 text-white/30" />
 										<input
 											value={manualCity}
-											onChange={(e) => setManualCity(e.target.value)}
-											placeholder={isLocating ? "..." : "CIUDAD (Vacío = Auto)"}
-											className={`w-full bg-transparent border-b border-white/10 py-2 pl-5 text-[10px] md:text-xs font-mono tracking-widest uppercase focus:outline-none focus:border-emerald-500/50 text-center ${
-												isLocating
-													? "animate-pulse text-emerald-500"
-													: "text-emerald-400"
-											}`}
+											onChange={(e) => {
+												setManualCity(e.target.value);
+												setSelectedExactLocation(null);
+											}}
+											placeholder="UBICACIÓN (Vacío = GPS)"
+											className="w-full bg-transparent border-b border-white/10 py-2 pl-5 pr-6 text-[10px] md:text-xs font-mono tracking-widest uppercase focus:outline-none focus:border-emerald-500/50 text-center text-emerald-400 placeholder-white/20"
 										/>
+										<button
+											type="button"
+											onClick={handlePickLocation}
+											className="absolute right-0 p-1 text-zinc-500 hover:text-cyan-400 transition-colors"
+											title="Seleccionar en mapa"
+										>
+											<Globe size={14} />
+										</button>
 									</div>
 								</div>
 								<textarea

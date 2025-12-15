@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { User, MapPin, MessageCircle, X } from "lucide-react";
+import { useStore } from "@nanostores/react";
+import { isPickingLocation, pickedCoordinates } from "../../store.js";
 
 const GOOGLE_TILES_URL = (x, y, z) =>
 	`https://mt1.google.com/vt/lyrs=s&x=${x}&y=${y}&z=${z}`;
@@ -17,6 +18,9 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 	const globeEl = useRef();
 	const [GlobePackage, setGlobePackage] = useState(null);
 	const [ThreePackage, setThreePackage] = useState(null);
+
+	// Leemos el estado: ¿Estamos eligiendo sitio?
+	const $isPicking = useStore(isPickingLocation);
 
 	const [selectedThoughtId, setSelectedThoughtId] = useState(null);
 	const [dimensions, setDimensions] = useState({ width: 800, height: 800 });
@@ -60,8 +64,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 			controls.dampingFactor = 0.1;
 			controls.enableDamping = true;
 
-			// Distancias de zoom
-			controls.minDistance = globe.getGlobeRadius() * 1.008;
+			controls.minDistance = globe.getGlobeRadius() * 1.001;
 			controls.maxDistance = globe.getGlobeRadius() * 9;
 			controls.zoomSpeed = 0.8;
 
@@ -77,24 +80,28 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 		}
 	}, [GlobePackage, ThreePackage, globeReady]);
 
-	// ZOOM LÓGICA: Solo si estás lejos (> 0.25). Si estás cerca, NO se mueve.
 	const handleSmartZoom = (lat, lng) => {
 		if (!globeEl.current) return;
 		const currentPov = globeEl.current.pointOfView();
-
-		// Si la altura es mayor a 0.25, bajamos a 0.12.
-		// Si ya estás más bajo de 0.25, nos quedamos quietos (target = current).
-		if (currentPov.altitude > 0.25) {
-			globeEl.current.pointOfView({ lat: lat, lng: lng, altitude: 0.12 }, 1000);
-		}
+		const targetAltitude =
+			currentPov.altitude > 0.25 ? 0.08 : currentPov.altitude;
+		globeEl.current.pointOfView(
+			{ lat: lat, lng: lng, altitude: targetAltitude },
+			1000
+		);
 	};
 
+	// --- LÓGICA DE DATOS: SI ELIGES UBICACIÓN, BORRAMOS LOS MARCADORES ---
 	const mapData = useMemo(() => {
+		// TRUCO MAESTRO: Si estás eligiendo sitio, devolvemos array vacío [].
+		// Así el mapa se limpia y no hay nada que estorbe al clic.
+		if ($isPicking) return [];
+
 		return messages
 			.filter((m) => m.location?.lat && m.location?.lon)
 			.map((m) => ({ ...m, isSelected: m.id === selectedThoughtId }))
 			.reverse();
-	}, [messages, selectedThoughtId]);
+	}, [messages, selectedThoughtId, $isPicking]); // Se recalcula cuando $isPicking cambia
 
 	const getLocationText = (d) => {
 		const city = d.cityName;
@@ -115,7 +122,11 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 	const Globe = GlobePackage;
 
 	return (
-		<div className="relative w-full h-full bg-[#0a0a0a] cursor-move select-none">
+		<div
+			className={`relative w-full h-full bg-[#0a0a0a] select-none ${
+				$isPicking ? "cursor-crosshair" : "cursor-move"
+			}`}
+		>
 			<Globe
 				ref={globeEl}
 				width={dimensions.width}
@@ -127,30 +138,44 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 				atmosphereAltitude={0.1}
 				htmlTransitionDuration={0}
 				animateIn={false}
+				// Si estamos eligiendo, mapData es [], así que no se dibuja nada
 				pointsData={mapData}
 				pointLat={(d) => d.location.lat}
 				pointLng={(d) => d.location.lon}
 				pointAltitude={0.001}
-				// RADIO REDUCIDO: De 1.5 a 0.25 para que no detecte clics en el mar
 				pointRadius={0.25}
 				pointColor={() => "rgba(0,0,0,0)"}
+				// Clic en punto invisible (Solo funciona en modo normal)
 				onPointClick={(d) => {
+					if ($isPicking) return;
 					setSelectedThoughtId(d.id);
 					handleSmartZoom(d.location.lat, d.location.lon);
 				}}
-				onGlobeClick={() => setSelectedThoughtId(null)}
+				// LÓGICA DIVIDIDA DE CLIC EN EL MUNDO
+				onGlobeClick={({ lat, lng }) => {
+					if ($isPicking) {
+						// MODO SELECCIÓN: Guardamos coordenada y salimos
+						pickedCoordinates.set({ lat, lng });
+						isPickingLocation.set(false);
+						handleSmartZoom(lat, lng);
+					} else {
+						// MODO NORMAL: Deseleccionar mensaje al hacer clic en el mar/tierra vacía
+						setSelectedThoughtId(null);
+					}
+				}}
 				htmlElementsData={mapData}
 				htmlLat={(d) => d.location.lat}
 				htmlLng={(d) => d.location.lon}
 				htmlAltitude={0}
 				htmlElement={(d) => {
+					// Si estamos eligiendo, mapData es [], así que este código NI SE EJECUTA.
+					// Máxima limpieza y rendimiento.
+
 					if (!markersRef.current[d.id]) {
 						const wrapper = document.createElement("div");
-						// El wrapper ahora tiene tamaño 0 para no afectar al layout
 						wrapper.className = "absolute flex items-center justify-center";
-						// translate-y-[-50%] centra verticalmente el punto de anclaje
 						wrapper.style.transform = "translate(-50%, -50%)";
-						wrapper.style.pointerEvents = "none";
+						wrapper.style.pointerEvents = "none"; // El wrapper no bloquea, sus hijos sí
 
 						const category = d.category
 							? String(d.category).toUpperCase()
@@ -165,15 +190,12 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 
 						wrapper.innerHTML = `
                             <div class="relative flex flex-col items-center">
-
                                 <div class="js-popup absolute bottom-[100%] mb-4 w-72 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl transition-all duration-200 z-[99999]" style="pointer-events: auto; display: none;">
-
                                     <div class="js-close-btn absolute -top-3 -right-3 w-10 h-10 flex items-center justify-center cursor-pointer z-[100]">
                                         <div class="w-7 h-7 bg-black border border-zinc-600 rounded-full flex items-center justify-center text-zinc-300 hover:text-white hover:bg-zinc-800 hover:scale-110 transition-all shadow-lg">
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                                         </div>
                                     </div>
-
                                     <div class="px-5 py-3 border-b border-zinc-800 bg-zinc-900/50 rounded-t-xl">
                                         <div class="flex items-center justify-between">
                                             <span class="text-xs font-mono uppercase tracking-widest text-cyan-400 truncate max-w-[140px]">
@@ -200,7 +222,6 @@ export const MapComponent = ({ messages = [], openProfile }) => {
                                     <button class="js-profile-btn w-full py-3 bg-black hover:bg-zinc-900 border-t border-zinc-800 text-[10px] text-cyan-500 uppercase tracking-widest transition-colors cursor-pointer flex items-center justify-center gap-2 rounded-b-xl">
                                         VER PERFIL COMPLETO
                                     </button>
-
                                     <div class="absolute -bottom-1.5 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-zinc-950 border-r border-b border-zinc-800 rotate-45"></div>
                                 </div>
 
@@ -210,50 +231,44 @@ export const MapComponent = ({ messages = [], openProfile }) => {
                             </div>
                         `;
 
+						// EVENTOS - AHORA SOLO EXISTEN EN MODO NORMAL
 						const killEvent = (e) => {
 							e.stopPropagation();
 							e.stopImmediatePropagation();
 						};
 						const iconContainer = wrapper.querySelector(".js-icon-container");
-						const popup = wrapper.querySelector(".js-popup");
-						const btn = wrapper.querySelector(".js-profile-btn");
 						const closeBtn = wrapper.querySelector(".js-close-btn");
+						const btn = wrapper.querySelector(".js-profile-btn");
 
-						[iconContainer, popup, closeBtn].forEach((el) => {
-							if (!el) return;
-							el.addEventListener("mousedown", killEvent);
-							el.addEventListener("pointerdown", killEvent);
-							el.addEventListener("touchstart", killEvent);
-						});
-
-						iconContainer.addEventListener("click", (e) => {
+						// Clic en foto -> Abre popup y hace zoom
+						iconContainer.onclick = (e) => {
 							killEvent(e);
 							const data = wrapper.__data;
 							if (data) {
 								setSelectedThoughtId(data.id);
-								// IMPORTANTE: También intentamos zoom aquí por si clicamos la foto y no el punto
 								handleSmartZoom(data.location.lat, data.location.lon);
 							}
+						};
+
+						// Evitar arrastre del mapa sobre estos elementos
+						[iconContainer, closeBtn, btn].forEach((el) => {
+							if (!el) return;
+							el.addEventListener("mousedown", killEvent);
+							el.addEventListener("touchstart", killEvent);
 						});
 
 						if (closeBtn) {
-							closeBtn.addEventListener("click", (e) => {
-								e.preventDefault();
-								e.stopPropagation();
+							closeBtn.onclick = (e) => {
+								killEvent(e);
 								setSelectedThoughtId(null);
-							});
-							closeBtn.addEventListener("touchend", (e) => {
-								e.preventDefault();
-								e.stopPropagation();
-								setSelectedThoughtId(null);
-							});
+							};
 						}
 
 						if (btn) {
-							btn.addEventListener("click", (e) => {
+							btn.onclick = (e) => {
 								killEvent(e);
 								if (wrapper.__data && openProfile) openProfile(wrapper.__data);
-							});
+							};
 						}
 						markersRef.current[d.id] = wrapper;
 					}
@@ -263,26 +278,19 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 					const popupEl = el.querySelector(".js-popup");
 					const photoEl = el.querySelector(".js-marker-photo");
 					const isSelected = d.id === selectedThoughtId;
-					const isAnySelected = selectedThoughtId !== null;
 
 					if (isSelected) {
 						el.style.zIndex = "99999";
-						el.style.opacity = "1";
-						el.style.pointerEvents = "auto";
 						if (popupEl) popupEl.style.display = "block";
 						if (photoEl) {
 							photoEl.classList.add("border-white");
 							photoEl.classList.remove("border-cyan-500");
 						}
-					} else if (isAnySelected) {
+					} else if (selectedThoughtId !== null) {
 						el.style.zIndex = "0";
-						el.style.opacity = "0";
-						el.style.pointerEvents = "none";
 						if (popupEl) popupEl.style.display = "none";
 					} else {
 						el.style.zIndex = "10";
-						el.style.opacity = "1";
-						el.style.pointerEvents = "auto";
 						if (popupEl) popupEl.style.display = "none";
 						if (photoEl) {
 							photoEl.classList.remove("border-white");

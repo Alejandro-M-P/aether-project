@@ -11,7 +11,8 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../../firebase.js";
 import { useStore } from "@nanostores/react";
-import { searchQuery } from "../../store.js";
+// Importamos la nueva variable availableCategories
+import { searchQuery, availableCategories } from "../../store.js";
 import { X, MapPin } from "lucide-react";
 
 const MapComponent = React.lazy(() =>
@@ -27,7 +28,7 @@ const MESSAGE_LIFETIME = 7200000;
 
 export const UniverseCanvas = () => {
 	const [rawMessages, setRawMessages] = useState([]);
-	const [dataVersion, setDataVersion] = useState(0); // ESTO FUERZA LA ACTUALIZACIÓN
+	const [dataVersion, setDataVersion] = useState(0);
 
 	const [selectedProfile, setSelectedProfile] = useState(null);
 	const [profilePosts, setProfilePosts] = useState([]);
@@ -89,22 +90,30 @@ export const UniverseCanvas = () => {
 
 		const unsubscribe = onSnapshot(q, (snapshot) => {
 			const receivedData = [];
+			const catsSet = new Set(); // Usamos un Set para evitar duplicados
+
 			snapshot.docs.forEach((doc) => {
 				const data = doc.data();
 				if (data.message && data.location) {
+					// Normalizamos la categoría (mayúsculas, sin espacios extra)
+					const cat = data.category
+						? String(data.category).toUpperCase().trim()
+						: "GENERAL";
 					receivedData.push({
 						id: doc.id,
 						...data,
-						category: data.category
-							? String(data.category).toUpperCase()
-							: "GENERAL",
+						category: cat,
 					});
+					// Añadimos la categoría a la lista
+					if (cat) catsSet.add(cat);
 				}
 			});
-			// Guardamos los datos
+
 			setRawMessages(receivedData);
-			// IMPORTANTE: Cambiamos el versionado para que MapComponent sepa que hay cambios
 			setDataVersion((v) => v + 1);
+
+			// ACTUALIZAMOS LA STORE GLOBAL: Convertimos el Set a Array y ordenamos
+			availableCategories.set(Array.from(catsSet).sort());
 		});
 		return () => unsubscribe();
 	}, []);
@@ -113,12 +122,10 @@ export const UniverseCanvas = () => {
 		const filterText = $searchQuery.toLowerCase().trim();
 		return rawMessages.filter((p) => {
 			if (!filterText) return true;
-			return (
-				p.message.toLowerCase().includes(filterText) ||
-				p.category.toLowerCase().includes(filterText)
-			);
+			// Filtro exacto por categoría para el desplegable
+			return p.category.toLowerCase().includes(filterText);
 		});
-	}, [rawMessages, $searchQuery]); // Se actualiza si cambia rawMessages
+	}, [rawMessages, $searchQuery]);
 
 	return (
 		<>
@@ -130,11 +137,10 @@ export const UniverseCanvas = () => {
 						</div>
 					}
 				>
-					{/* Le pasamos la 'key' o 'version' para obligar al repintado */}
 					<MapComponent
 						messages={processedMessages}
 						openProfile={openProfileMemo}
-						version={dataVersion} // CLAVE PARA EL TIEMPO REAL
+						version={dataVersion}
 					/>
 				</React.Suspense>
 			</div>
