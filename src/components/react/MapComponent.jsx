@@ -60,8 +60,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 			controls.dampingFactor = 0.1;
 			controls.enableDamping = true;
 
-			// --- AJUSTE DE ZOOM ---
-			// 1.008 es el punto dulce: muy cerca, pero estable.
+			// ZOOM SETUP
 			controls.minDistance = globe.getGlobeRadius() * 1.008;
 			controls.maxDistance = globe.getGlobeRadius() * 9;
 			controls.zoomSpeed = 0.8;
@@ -81,12 +80,8 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 	const handleSmartZoom = (lat, lng) => {
 		if (!globeEl.current) return;
 		const currentPov = globeEl.current.pointOfView();
-
-		// Si estamos muy lejos, bajamos a 0.12 (altura de ciudad/barrio)
-		// Antes era 0.05 y era demasiado agresivo.
 		const targetAltitude =
 			currentPov.altitude > 0.4 ? 0.12 : currentPov.altitude;
-
 		globeEl.current.pointOfView(
 			{ lat: lat, lng: lng, altitude: targetAltitude },
 			1000
@@ -137,7 +132,6 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 				pointAltitude={0.001}
 				pointRadius={1.5}
 				pointColor={() => "rgba(0,0,0,0)"}
-				// Clic en el SUELO (Punto 3D invisible) -> SÍ hace zoom
 				onPointClick={(d) => {
 					setSelectedThoughtId(d.id);
 					handleSmartZoom(d.location.lat, d.location.lon);
@@ -150,8 +144,9 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 				htmlElement={(d) => {
 					if (!markersRef.current[d.id]) {
 						const wrapper = document.createElement("div");
+						// Usamos 'relative' para que los hijos absolutos se posicionen respecto a esto
 						wrapper.className =
-							"flex flex-col items-center justify-end transform -translate-x-1/2 -translate-y-[100%]";
+							"relative flex flex-col items-center justify-end transform -translate-x-1/2 -translate-y-[100%]";
 						wrapper.style.pointerEvents = "none";
 
 						const category = d.category
@@ -166,7 +161,8 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 						const finalMessage = d.text || d.message || "";
 
 						wrapper.innerHTML = `
-                            <div class="js-popup relative mb-3 w-72 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl transition-all duration-200" style="pointer-events: auto; display: none;">
+                            <div class="js-popup absolute bottom-[calc(100%+12px)] left-1/2 transform -translate-x-1/2 w-72 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl transition-all duration-200 z-[99999]" style="pointer-events: auto; display: none;">
+
                                 <div class="js-close-btn absolute -top-3 -right-3 w-10 h-10 flex items-center justify-center cursor-pointer z-[100]">
                                     <div class="w-7 h-7 bg-black border border-zinc-600 rounded-full flex items-center justify-center text-zinc-300 hover:text-white hover:bg-zinc-800 hover:scale-110 transition-all shadow-lg">
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -198,7 +194,8 @@ export const MapComponent = ({ messages = [], openProfile }) => {
                                 </button>
                                 <div class="absolute -bottom-1.5 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-zinc-950 border-r border-b border-zinc-800 rotate-45"></div>
                             </div>
-                            <div class="js-icon-container cursor-pointer group relative transition-all duration-300" style="pointer-events: auto;">
+
+                            <div class="js-icon-container cursor-pointer group relative transition-all duration-300 z-10" style="pointer-events: auto;">
                                 <img src="${photo}" class="js-marker-photo relative w-10 h-10 rounded-full object-cover border-2 border-cyan-500 transition-all duration-200 hover:border-white z-10 bg-black shadow-lg" />
                             </div>
                         `;
@@ -219,7 +216,6 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 							el.addEventListener("touchstart", killEvent);
 						});
 
-						// Clic en FOTO: Solo selecciona, NO mueve el mapa
 						iconContainer.addEventListener("click", (e) => {
 							killEvent(e);
 							const data = wrapper.__data;
