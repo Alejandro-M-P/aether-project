@@ -14,7 +14,10 @@ const CATEGORY_COLORS = {
 	GENERAL: "#22d3ee", // cyan-400
 };
 
-export const MapComponent = ({ messages = [], openProfile }) => {
+// Límite de caracteres para la vista previa
+const MAX_TEXT_LENGTH = 300;
+
+export const MapComponent = ({ messages = [] }) => {
 	const globeEl = useRef();
 	const [GlobePackage, setGlobePackage] = useState(null);
 	const [ThreePackage, setThreePackage] = useState(null);
@@ -89,10 +92,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 
 	// --- LÓGICA DE DATOS (FOCUS MODE) ---
 	const mapData = useMemo(() => {
-		// MODO 1: LOCALIZADOR -> Limpio
 		if ($isPicking) return [];
-
-		// MODO 2: NORMAL -> Ver fotos
 		if (selectedThoughtId) {
 			const selected = messages.find((m) => m.id === selectedThoughtId);
 			if (selected) {
@@ -105,7 +105,6 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 				];
 			}
 		}
-
 		return messages
 			.filter((m) => m.location?.lat && m.location?.lon)
 			.map((m) => ({
@@ -120,23 +119,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 		const city = d.cityName;
 		if (city && city !== "undefined" && city !== "null" && city.trim() !== "")
 			return city;
-		const region = d.regionName || d.principalSubdivision || d.locality;
-		if (
-			region &&
-			region !== "undefined" &&
-			region !== "null" &&
-			region.trim() !== ""
-		)
-			return region;
-		const country = d.countryName;
-		if (
-			country &&
-			country !== "undefined" &&
-			country !== "null" &&
-			country.trim() !== ""
-		)
-			return country;
-		return "Localizado";
+		return d.countryName || "Localizado";
 	};
 
 	if (!GlobePackage) return <div className="w-full h-full bg-[#0a0a0a]" />;
@@ -194,7 +177,13 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 						const photo =
 							d.photoURL && d.photoURL.length > 5 ? d.photoURL : DEFAULT_AVATAR;
 						const locationText = getLocationText(d);
+
+						// --- LÓGICA DE TEXTO Y RECORTE ---
 						const finalMessage = d.text || d.message || "";
+						const isLong = finalMessage.length > MAX_TEXT_LENGTH;
+						const displayMessage = isLong
+							? finalMessage.slice(0, MAX_TEXT_LENGTH) + "..."
+							: finalMessage;
 
 						wrapper.innerHTML = `
                             <div style="position: relative; display: flex; align-items: center; justify-content: center;">
@@ -202,7 +191,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
                                     display: none;
                                     position: absolute;
                                     bottom: 50px;
-                                    width: 280px;
+                                    width: 320px;
                                     background-color: #09090b;
                                     border: 1px solid #27272a;
                                     border-radius: 12px;
@@ -210,6 +199,8 @@ export const MapComponent = ({ messages = [], openProfile }) => {
                                     cursor: default;
                                     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.8);
                                     z-index: 1000;
+                                    display: flex;
+                                    flex-direction: column;
                                 ">
                                     <div class="js-close-btn" style="
                                         position: absolute; top: -10px; right: -10px; width: 30px; height: 30px;
@@ -218,9 +209,9 @@ export const MapComponent = ({ messages = [], openProfile }) => {
                                         z-index: 1001;
                                     ">✕</div>
 
-                                    <div style="padding: 12px 20px; border-bottom: 1px solid #27272a; background: rgba(24, 24, 27, 0.5); border-top-left-radius: 12px; border-top-right-radius: 12px;">
+                                    <div style="padding: 12px 20px; border-bottom: 1px solid #27272a; background: rgba(24, 24, 27, 0.5); border-top-left-radius: 12px; border-top-right-radius: 12px; flex-shrink: 0;">
                                         <div style="display: flex; justify-content: space-between; align-items: center;">
-                                            <span style="font-size: 10px; color: #22d3ee; font-family: monospace; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px;">
+                                            <span style="font-size: 10px; color: #22d3ee; font-family: monospace; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px;">
                                                 ${
 																									d.displayName
 																										? d.displayName.split(
@@ -238,18 +229,37 @@ export const MapComponent = ({ messages = [], openProfile }) => {
                                         </div>
                                     </div>
 
-                                    <div style="padding: 20px;">
-                                        <p style="font-size: 14px; color: #e4e4e7; font-style: italic; margin: 0; line-height: 1.5;">"${finalMessage}"</p>
+                                    <div style="padding: 20px; max-height: 350px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #27272a transparent;">
+                                        <p class="js-message-text" style="
+                                            font-size: 14px;
+                                            color: #e4e4e7;
+                                            font-style: italic;
+                                            margin: 0;
+                                            line-height: 1.6;
+                                            white-space: pre-wrap;
+                                            overflow-wrap: break-word;
+                                            word-wrap: break-word;
+                                            user-select: text;
+                                        ">${displayMessage}</p>
+										${
+											isLong
+												? `
+											<div class="js-read-more" style="
+												margin-top: 12px;
+												color: #22d3ee;
+												font-size: 10px;
+												font-weight: bold;
+												text-transform: uppercase;
+												cursor: pointer;
+												letter-spacing: 1px;
+                                                padding: 4px 0;
+											">
+												+ Leer todo
+											</div>
+										`
+												: ""
+										}
                                     </div>
-
-                                    <button class="js-profile-btn" style="
-                                        width: 100%; padding: 12px; background: black; color: #22d3ee;
-                                        font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
-                                        border: none; border-top: 1px solid #27272a; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;
-                                        cursor: pointer;
-                                    ">
-                                        VER PERFIL COMPLETO
-                                    </button>
                                 </div>
 
                                 <div class="js-icon-container" style="
@@ -268,29 +278,37 @@ export const MapComponent = ({ messages = [], openProfile }) => {
                             </div>
                         `;
 
-						// === BLOQUEO SELECTIVO ===
-						// Solo bloqueamos "mousedown" y similares para evitar arrastrar el mapa.
-						// PERO NO BLOQUEAMOS "click".
 						const preventMapDrag = (e) => {
 							e.stopPropagation();
-							// NO llamamos a stopImmediatePropagation aquí para dejar que el click fluya si es necesario,
-							// pero lo crítico es stopPropagation para que no suba al Globe.
 						};
 
 						const interactables = [
 							wrapper.querySelector(".js-popup"),
 							wrapper.querySelector(".js-icon-container"),
 							wrapper.querySelector(".js-close-btn"),
-							wrapper.querySelector(".js-profile-btn"),
+							wrapper.querySelector(".js-read-more"),
+							wrapper.querySelector(".js-message-text"),
 						];
 
 						interactables.forEach((el) => {
 							if (!el) return;
-							// Bloqueamos el INICIO de la interacción para que el mapa no la capture como "drag"
 							el.addEventListener("pointerdown", preventMapDrag);
 							el.addEventListener("mousedown", preventMapDrag);
 							el.addEventListener("touchstart", preventMapDrag);
 						});
+
+						// --- LOGICA DE EXPANSION ---
+						const readMoreBtn = wrapper.querySelector(".js-read-more");
+						if (readMoreBtn) {
+							readMoreBtn.onclick = (e) => {
+								e.stopPropagation();
+								const textEl = wrapper.querySelector(".js-message-text");
+								if (textEl) {
+									textEl.innerText = finalMessage;
+									readMoreBtn.style.display = "none";
+								}
+							};
+						}
 
 						markersRef.current[d.id] = wrapper;
 					}
@@ -301,7 +319,6 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 					const iconContainer = el.querySelector(".js-icon-container");
 					if (iconContainer) {
 						iconContainer.onclick = (e) => {
-							// Detenemos propagación AQUÍ para que no cuente como click en el mapa
 							e.stopPropagation();
 							setReadThoughtIds((prev) => new Set(prev).add(d.id));
 							setSelectedThoughtId(d.id);
@@ -317,14 +334,6 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 						};
 					}
 
-					const btn = el.querySelector(".js-profile-btn");
-					if (btn) {
-						btn.onclick = (e) => {
-							e.stopPropagation();
-							if (openProfile) openProfile(d);
-						};
-					}
-
 					// VISIBILIDAD
 					const popupEl = el.querySelector(".js-popup");
 					const photoImg = el.querySelector(".js-photo");
@@ -332,7 +341,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 
 					if (isSelected) {
 						el.style.zIndex = "99999999";
-						if (popupEl) popupEl.style.display = "block";
+						if (popupEl) popupEl.style.display = "flex";
 						if (photoImg) {
 							photoImg.style.borderColor = "white";
 							photoImg.style.transform = "scale(1.2)";

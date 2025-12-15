@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { Filter, X, MapPin, ChevronUp, Check, Globe } from "lucide-react";
+import {
+	Filter,
+	X,
+	MapPin,
+	ChevronUp,
+	ChevronDown,
+	Check,
+	Globe,
+	Plus,
+	Search,
+} from "lucide-react";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 import { db, auth } from "../../firebase.js";
@@ -22,7 +32,7 @@ const addRandomOffset = (location) => {
 	return newLocation;
 };
 
-// --- MEJORA PARA DETECTAR ISLAS Y REGIONES (Canarias, etc.) ---
+// --- REVERSE GEOCODING ---
 const reverseGeocode = async (lat, lon) => {
 	try {
 		const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
@@ -33,7 +43,6 @@ const reverseGeocode = async (lat, lon) => {
 		const addr = data.address;
 
 		if (addr) {
-			// 1. Lugar específico
 			const specific =
 				addr.city ||
 				addr.town ||
@@ -41,8 +50,6 @@ const reverseGeocode = async (lat, lon) => {
 				addr.hamlet ||
 				addr.municipality;
 
-			// 2. Contexto Amplio: Isla > Archipiélago > Estado/Región > País
-			// Añadido 'state' y 'region' para capturar Canarias u otras comunidades.
 			let context =
 				addr.island || addr.archipelago || addr.state || addr.region;
 
@@ -50,7 +57,6 @@ const reverseGeocode = async (lat, lon) => {
 				context = addr.country;
 			}
 
-			// 3. Construcción del nombre
 			if (specific && context) {
 				return `${specific} (${context})`;
 			}
@@ -94,35 +100,79 @@ export default function ControlBar() {
 	const [msg, setMsg] = useState("");
 	const [cat, setCat] = useState("");
 
+	// Estado para sugerencias
+	const [showCatSuggestions, setShowCatSuggestions] = useState(false);
+	const [filteredCats, setFilteredCats] = useState([]);
+
 	const [manualCity, setManualCity] = useState("");
+
+	// ERROR CORREGIDO: Usar useState para el estado de React
 	const [selectedExactLocation, setSelectedExactLocation] = useState(null);
+
 	const [isSending, setIsSending] = useState(false);
+
+	// Bandera para saber si la categoría que está escribiendo el usuario ya existe
+	const catExists = $availableCategories
+		.map((c) => c.toUpperCase())
+		.includes(cat.trim().toUpperCase());
+
+	// Filtrado inteligente
+	useEffect(() => {
+		if (!cat.trim()) {
+			setFilteredCats($availableCategories);
+		} else {
+			const lower = cat.toLowerCase();
+			setFilteredCats(
+				$availableCategories.filter((c) => c.toLowerCase().includes(lower))
+			);
+		}
+	}, [cat, $availableCategories]);
 
 	useEffect(() => {
 		if ($pickedCoordinates) {
 			setOpen(true);
-			setSelectedExactLocation($pickedCoordinates);
+			const normalizedCoords = {
+				lat: $pickedCoordinates.lat,
+				lon: $pickedCoordinates.lng,
+			};
+			setSelectedExactLocation(normalizedCoords);
 			setManualCity("Identificando...");
-
-			reverseGeocode($pickedCoordinates.lat, $pickedCoordinates.lng).then(
+			reverseGeocode(normalizedCoords.lat, normalizedCoords.lon).then(
 				(name) => {
 					setManualCity(name);
 				}
 			);
-
 			pickedCoordinates.set(null);
 		}
 	}, [$pickedCoordinates]);
 
+	// Gestión de apertura/cierre del menú de categorías del footer
+	const handleToggleCatMenu = (e) => {
+		e.stopPropagation();
+		setIsCatMenuOpen((prev) => !prev);
+	};
+
+	// Cierra el menú de categorías del footer al hacer clic fuera
 	useEffect(() => {
-		const closeMenu = () => setIsCatMenuOpen(false);
-		if (isCatMenuOpen) window.addEventListener("click", closeMenu);
-		return () => window.removeEventListener("click", closeMenu);
+		const closeMenu = (e) => {
+			if (e.target.closest(".category-menu-container")) {
+				return;
+			}
+			setIsCatMenuOpen(false);
+		};
+		if (isCatMenuOpen) document.addEventListener("click", closeMenu);
+		return () => document.removeEventListener("click", closeMenu);
 	}, [isCatMenuOpen]);
 
 	const handlePickLocation = () => {
 		setOpen(false);
 		isPickingLocation.set(true);
+	};
+
+	// Función para manejar la selección de una categoría existente desde el desplegable
+	const handleSelectExistingCat = (selectedCat) => {
+		setCat(selectedCat);
+		setShowCatSuggestions(false);
 	};
 
 	const send = async (e) => {
@@ -175,8 +225,6 @@ export default function ControlBar() {
 				finalCityName = "Localizado";
 
 			const randomizedLocation = addRandomOffset(finalCoords);
-
-			// Aseguramos que la categoría también vaya limpia
 			const cleanCat = cat ? cat.trim().toUpperCase() : "GENERAL";
 
 			const thoughtData = {
@@ -228,27 +276,26 @@ export default function ControlBar() {
 
 	return (
 		<>
-			<footer className="fixed bottom-0 left-0 right-0 z-50 w-full px-2 md:px-4 py-4 md:py-8 pointer-events-none flex justify-center">
-				<div className="pointer-events-auto flex items-center bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 rounded-full shadow-[0_0_40px_rgba(0,0,0,0.5)] transition-all w-[98%] max-w-lg group relative">
-					<div
-						className="flex items-center gap-3 w-1/2 pl-6 pr-4 py-4 border-r border-zinc-700/50 cursor-pointer hover:bg-white/5 transition-colors rounded-l-full relative"
-						onClick={(e) => {
-							e.stopPropagation();
-							setIsCatMenuOpen(!isCatMenuOpen);
-						}}
+			{/* --- FOOTER SEPARADO --- */}
+			<footer className="fixed bottom-0 left-0 right-0 z-50 w-full px-4 md:px-8 py-4 md:py-8 pointer-events-none flex justify-center gap-4">
+				{/* --- BOTÓN DE BUSCAR/FILTRAR (A la izquierda) --- */}
+				<div className="category-menu-container pointer-events-auto relative">
+					<button
+						className="flex items-center gap-3 bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 cursor-pointer hover:bg-zinc-800/80 transition-colors rounded-full relative shadow-[0_0_20px_rgba(0,0,0,0.5)] px-5 py-3.5 md:px-6 md:py-4"
+						onClick={handleToggleCatMenu}
 					>
-						<Filter
+						<Search
 							className={`h-4 w-4 ${
 								$searchQuery ? "text-cyan-400" : "text-zinc-500"
 							} transition-colors`}
 						/>
-						<div className="flex-1 min-w-0">
+						<div className="min-w-0 text-left">
 							<span
-								className={`block text-xs font-mono tracking-widest uppercase truncate ${
+								className={`block text-[10px] md:text-xs font-mono tracking-widest uppercase truncate ${
 									$searchQuery ? "text-white" : "text-zinc-500"
 								}`}
 							>
-								{$searchQuery || "CATEGORÍAS"}
+								{$searchQuery || "Buscar Canales"}
 							</span>
 						</div>
 						<ChevronUp
@@ -256,60 +303,71 @@ export default function ControlBar() {
 								isCatMenuOpen ? "rotate-180" : ""
 							}`}
 						/>
+					</button>
 
-						{isCatMenuOpen && (
-							<div className="absolute bottom-[130%] left-0 w-full bg-zinc-950/95 backdrop-blur-xl border border-zinc-800 rounded-xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom-2 fade-in duration-200">
-								<div className="max-h-60 overflow-y-auto custom-scrollbar p-1">
+					{/* Menú Desplegable de Categorías del Footer */}
+					{isCatMenuOpen && (
+						<div className="absolute bottom-[130%] left-0 w-full min-w-[200px] bg-zinc-950/95 backdrop-blur-xl border border-zinc-800 rounded-xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom-2 fade-in duration-200">
+							<div className="max-h-60 overflow-y-auto custom-scrollbar p-1">
+								<button
+									onClick={(e) => {
+										e.stopPropagation();
+										searchQuery.set("");
+										setIsCatMenuOpen(false);
+									}}
+									className="w-full text-left px-4 py-3 hover:bg-zinc-800/50 rounded-lg flex items-center justify-between group transition-colors"
+								>
+									<span className="text-xs font-mono text-zinc-400 group-hover:text-white uppercase tracking-wider">
+										Todas las Categorías
+									</span>
+									{!$searchQuery && <Check className="w-3 h-3 text-cyan-400" />}
+								</button>
+								{$availableCategories.map((c) => (
 									<button
-										onClick={() => searchQuery.set("")}
+										key={c}
+										onClick={(e) => {
+											e.stopPropagation();
+											searchQuery.set(c.toLowerCase());
+											setIsCatMenuOpen(false);
+										}}
 										className="w-full text-left px-4 py-3 hover:bg-zinc-800/50 rounded-lg flex items-center justify-between group transition-colors"
 									>
-										<span className="text-xs font-mono text-zinc-400 group-hover:text-white uppercase tracking-wider">
-											Todas
+										<span className="text-xs font-mono text-zinc-300 group-hover:text-cyan-400 uppercase tracking-wider">
+											{c}
 										</span>
-										{!$searchQuery && (
+										{$searchQuery.toUpperCase() === c.toUpperCase() && (
 											<Check className="w-3 h-3 text-cyan-400" />
 										)}
 									</button>
-									{$availableCategories.map((c) => (
-										<button
-											key={c}
-											onClick={() => searchQuery.set(c.toLowerCase())}
-											className="w-full text-left px-4 py-3 hover:bg-zinc-800/50 rounded-lg flex items-center justify-between group transition-colors"
-										>
-											<span className="text-xs font-mono text-zinc-300 group-hover:text-cyan-400 uppercase tracking-wider">
-												{c}
-											</span>
-											{$searchQuery.toUpperCase() === c.toUpperCase() && (
-												<Check className="w-3 h-3 text-cyan-400" />
-											)}
-										</button>
-									))}
-								</div>
+								))}
 							</div>
-						)}
-					</div>
-					<button
-						onClick={() => setOpen(true)}
-						className="w-1/2 flex items-center justify-center gap-2 md:gap-3 bg-transparent hover:bg-zinc-800/80 text-emerald-400 hover:text-white text-[10px] md:text-base font-mono uppercase tracking-widest px-4 py-3 md:px-6 md:py-4 rounded-r-full transition-all active:scale-[0.99] hover:shadow-[0_0_15px_rgba(16,185,129,0.3)]"
-					>
-						<span className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]"></span>
-						TRANSMITIR
-					</button>
+						</div>
+					)}
 				</div>
+
+				{/* --- BOTÓN DE CREAR/TRANSMITIR (A la derecha) --- */}
+				<button
+					onClick={() => setOpen(true)}
+					className="pointer-events-auto flex items-center justify-center gap-2 md:gap-3 bg-emerald-700/50 backdrop-blur-xl border border-emerald-500/50 text-emerald-300 hover:text-white text-[10px] md:text-base font-mono uppercase tracking-widest px-5 py-3.5 md:px-6 md:py-4 rounded-full transition-all active:scale-[0.99] hover:shadow-[0_0_25px_rgba(16,185,129,0.5)]"
+				>
+					<Plus size={16} className="text-emerald-500" />
+					Crear Señal
+				</button>
 			</footer>
 
+			{/* --- MODAL DE NUEVA TRANSMISIÓN --- */}
 			{open && (
 				<div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-60 flex items-center justify-center p-4 md:p-6 overflow-y-auto">
 					<div className="w-full max-w-lg relative animate-in fade-in zoom-in duration-300 my-auto">
 						<button
 							onClick={() => setOpen(false)}
-							className="absolute top-3 right-4 md:-top-12 md:right-0 text-zinc-500 hover:text-cyan-400 transition-colors flex items-center gap-2 text-xs font-mono uppercase tracking-widest cursor-pointer hover:drop-shadow-[0_0_5px_rgba(6,182,212,1)] z-10"
+							className="absolute top-3 right-4 md:-top-12 md:-right-4 text-zinc-500 hover:text-cyan-400 transition-colors flex items-center gap-2 text-xs font-mono uppercase tracking-widest cursor-pointer hover:drop-shadow-[0_0_5px_rgba(6,182,212,1)] z-10"
 						>
 							<span className="hidden md:inline">[ Cerrar ]</span>{" "}
 							<X size={20} />
 						</button>
 
+						{/* --- CONTENEDOR PRINCIPAL DEL MODAL --- */}
 						<div className="bg-zinc-950/95 border border-cyan-500/20 rounded-2xl p-6 md:p-8 shadow-[0_0_80px_rgba(6,182,212,0.2)] ring-2 ring-white/5 backdrop-blur-md">
 							<div className="text-center mb-6 md:mb-8 mt-2 md:mt-0">
 								<h2 className="text-white font-mono text-xs md:text-sm tracking-[0.3em] uppercase opacity-70">
@@ -317,47 +375,139 @@ export default function ControlBar() {
 								</h2>
 							</div>
 
-							<form onSubmit={send} className="flex flex-col gap-4 md:gap-6">
+							<form onSubmit={send} className="flex flex-col gap-6 md:gap-8">
+								{/* --- FILA SUPERIOR: CANAL (INPUT + CREAR) --- */}
 								<div className="flex gap-4">
-									<input
-										value={cat}
-										onChange={(e) => setCat(e.target.value)}
-										placeholder="CANAL"
-										className="w-1/3 bg-transparent border-b border-white/10 py-2 text-white/60 text-[10px] md:text-xs font-mono tracking-widest uppercase focus:outline-none focus:border-emerald-500/50 text-center"
-									/>
+									{/* 1/2: INPUT DE CANAL MEJORADO */}
+									<div className="w-1/2 relative z-50">
+										<label className="block text-[10px] text-zinc-400 font-mono tracking-widest mb-1">
+											CANAL (ESCRIBE)
+										</label>
+										<div className="relative border border-cyan-700/50 rounded-lg shadow-inner shadow-black/50 bg-zinc-900/50">
+											<input
+												value={cat}
+												onChange={(e) => setCat(e.target.value)}
+												onFocus={() => setShowCatSuggestions(true)}
+												onBlur={() =>
+													setTimeout(() => setShowCatSuggestions(false), 200)
+												}
+												// placeholder eliminado para usar el label
+												className="w-full bg-transparent py-3 pl-4 pr-8 text-white text-sm font-mono tracking-wide focus:outline-none placeholder-white/30"
+												autoComplete="off"
+											/>
+											<ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cyan-400 pointer-events-none" />
+										</div>
 
-									<div className="w-2/3 relative flex items-center">
-										<MapPin className="absolute left-0 w-3 h-3 text-white/30" />
-										<input
-											value={manualCity}
-											onChange={(e) => {
-												setManualCity(e.target.value);
-												setSelectedExactLocation(null);
-											}}
-											placeholder="UBICACIÓN (Vacío = GPS)"
-											className="w-full bg-transparent border-b border-white/10 py-2 pl-5 pr-6 text-[10px] md:text-xs font-mono tracking-widest uppercase focus:outline-none focus:border-emerald-500/50 text-center text-emerald-400 placeholder-white/20"
-										/>
+										{/* Lista Desplegable: SOLO SELECCIÓN/BÚSQUEDA */}
+										{showCatSuggestions && (
+											<div className="absolute top-[calc(100%+5px)] left-0 w-full mt-1 rounded-md shadow-2xl z-[100] flex flex-col overflow-hidden bg-zinc-950 border border-cyan-500/30 max-h-[12rem]">
+												<div className="flex flex-col overflow-y-auto custom-scrollbar">
+													{filteredCats.length > 0 && (
+														<div className="px-3 py-2 text-[8px] text-zinc-600 font-mono uppercase bg-zinc-900/50 tracking-wider sticky top-0 border-b border-zinc-800">
+															Canales Existentes (SELECCIONAR)
+														</div>
+													)}
+
+													{filteredCats.length > 0 ? (
+														filteredCats.map((existingCat) => (
+															<div
+																key={existingCat}
+																onMouseDown={(e) => {
+																	e.preventDefault();
+																	handleSelectExistingCat(existingCat);
+																}}
+																className="px-3 py-3.5 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-cyan-400 cursor-pointer font-mono uppercase truncate text-center transition-colors border-b border-zinc-900 last:border-b-0 flex items-center justify-center gap-2"
+															>
+																<Search size={12} />
+																{existingCat}
+																{existingCat.toUpperCase() ===
+																	cat.trim().toUpperCase() && (
+																	<Check className="w-3 h-3 text-cyan-400 ml-2" />
+																)}
+															</div>
+														))
+													) : (
+														<div className="px-3 py-3.5 text-xs text-zinc-600 font-mono text-center italic">
+															Sin coincidencias.
+														</div>
+													)}
+												</div>
+											</div>
+										)}
+									</div>
+
+									{/* 2/2: BOTÓN CREAR (Siempre visible) */}
+									<div className="w-1/2 flex items-start pt-[1.7rem] relative">
 										<button
 											type="button"
-											onClick={handlePickLocation}
-											className="absolute right-0 p-1 text-zinc-500 hover:text-cyan-400 transition-colors"
-											title="Seleccionar en mapa"
+											onMouseDown={(e) => {
+												e.preventDefault();
+												setShowCatSuggestions(false);
+											}}
+											className={`w-full py-3 rounded-lg text-white font-mono uppercase text-center transition-all flex items-center justify-center gap-2 text-xs font-bold shadow-xl z-40 relative group ${
+												cat.trim() && !catExists
+													? "bg-emerald-700/50 hover:bg-emerald-600/70 border border-emerald-500/50 hover:shadow-[0_0_20px_rgba(16,185,129,0.5)]"
+													: "bg-zinc-800/50 border border-zinc-700/50 text-zinc-500 cursor-default"
+											}`}
+											disabled={!cat.trim() || catExists}
+											title={
+												!cat.trim()
+													? "Escribe un nombre para crear"
+													: catExists
+													? "Este canal ya existe"
+													: `Crear canal: ${cat}`
+											}
 										>
-											<Globe size={14} />
+											<Plus size={16} />
+											{cat.trim()
+												? `CREAR: "${cat.toUpperCase()}"`
+												: "CREAR CANAL"}
+
+											{catExists && (
+												<span className="absolute -top-3 right-0 text-[8px] px-1 text-red-400 font-mono tracking-widest bg-zinc-950/80 rounded">
+													Ya Existe
+												</span>
+											)}
 										</button>
 									</div>
 								</div>
+
+								{/* --- FILA INFERIOR: UBICACIÓN MEJORADA --- */}
+								<div className="relative z-0 border border-cyan-700/50 rounded-lg shadow-inner shadow-black/50 bg-zinc-900/50 px-4 py-3 flex items-center">
+									<MapPin className="w-5 h-5 text-cyan-400 mr-3" />
+
+									<input
+										value={manualCity}
+										onChange={(e) => {
+											setManualCity(e.target.value);
+											setSelectedExactLocation(null);
+										}}
+										placeholder="UBICACIÓN (Vacío = GPS)"
+										className="w-full bg-transparent text-white text-sm font-mono tracking-wide focus:outline-none placeholder-white/30"
+									/>
+									<button
+										type="button"
+										onClick={handlePickLocation}
+										className="p-1 text-cyan-400 hover:text-white transition-colors ml-2"
+										title="Seleccionar en mapa"
+									>
+										<Globe size={20} />
+									</button>
+								</div>
+
+								{/* --- CAMPO DE MENSAJE --- */}
 								<textarea
 									value={msg}
 									onChange={(e) => setMsg(e.target.value)}
-									className="bg-transparent text-white text-base md:text-lg font-light text-center resize-none placeholder-white/20 focus:outline-none h-24 md:h-32 leading-relaxed"
+									className="bg-zinc-900/50 border border-zinc-700/50 text-white text-base md:text-lg font-light text-center resize-none placeholder-white/20 focus:outline-none focus:border-cyan-500/50 rounded-lg h-24 md:h-32 leading-relaxed p-4 transition-colors"
 									placeholder="Escribe tu mensaje..."
-									maxLength={280}
-									autoFocus
+									maxLength={4000}
 								/>
+
+								{/* --- BOTÓN ENVIAR --- */}
 								<button
-									disabled={isSending}
-									className="w-full bg-emerald-900/20 hover:bg-emerald-800/50 border border-emerald-500/20 text-emerald-400 hover:text-white py-3 md:py-4 rounded-lg text-[10px] md:text-xs font-mono tracking-[0.2em] uppercase transition-all disabled:opacity-50 mt-2 group cursor-pointer hover:shadow-[0_0_20px_rgba(16,185,129,0.5)]"
+									disabled={isSending || !msg.trim()}
+									className="w-full bg-emerald-900/20 hover:bg-emerald-800/50 border border-emerald-500/20 text-emerald-400 hover:text-white py-3 md:py-4 rounded-lg text-xs font-mono tracking-[0.2em] uppercase transition-all disabled:opacity-50 mt-2 group cursor-pointer hover:shadow-[0_0_20px_rgba(16,185,129,0.5)] disabled:cursor-not-allowed"
 								>
 									{isSending ? (
 										<span className="animate-pulse">Enviando...</span>
