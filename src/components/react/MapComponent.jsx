@@ -60,8 +60,9 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 			controls.dampingFactor = 0.1;
 			controls.enableDamping = true;
 
-			// --- ZOOM EXTREMO (Mantenido) ---
-			controls.minDistance = globe.getGlobeRadius() * 1.0001;
+			// --- AJUSTE DE ZOOM ---
+			// 1.008 es el punto dulce: muy cerca, pero estable.
+			controls.minDistance = globe.getGlobeRadius() * 1.008;
 			controls.maxDistance = globe.getGlobeRadius() * 9;
 			controls.zoomSpeed = 0.8;
 
@@ -80,8 +81,12 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 	const handleSmartZoom = (lat, lng) => {
 		if (!globeEl.current) return;
 		const currentPov = globeEl.current.pointOfView();
+
+		// Si estamos muy lejos, bajamos a 0.12 (altura de ciudad/barrio)
+		// Antes era 0.05 y era demasiado agresivo.
 		const targetAltitude =
-			currentPov.altitude > 0.3 ? 0.05 : currentPov.altitude;
+			currentPov.altitude > 0.4 ? 0.12 : currentPov.altitude;
+
 		globeEl.current.pointOfView(
 			{ lat: lat, lng: lng, altitude: targetAltitude },
 			1000
@@ -132,6 +137,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 				pointAltitude={0.001}
 				pointRadius={1.5}
 				pointColor={() => "rgba(0,0,0,0)"}
+				// Clic en el SUELO (Punto 3D invisible) -> SÍ hace zoom
 				onPointClick={(d) => {
 					setSelectedThoughtId(d.id);
 					handleSmartZoom(d.location.lat, d.location.lon);
@@ -157,9 +163,6 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 							d.photoURL && d.photoURL.length > 5 ? d.photoURL : DEFAULT_AVATAR;
 
 						const locationText = getLocationText(d);
-
-						// --- ARREGLO DEL "UNDEFINED" ---
-						// Buscamos d.text O d.message. Si ambos fallan, cadena vacía.
 						const finalMessage = d.text || d.message || "";
 
 						wrapper.innerHTML = `
@@ -216,6 +219,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 							el.addEventListener("touchstart", killEvent);
 						});
 
+						// Clic en FOTO: Solo selecciona, NO mueve el mapa
 						iconContainer.addEventListener("click", (e) => {
 							killEvent(e);
 							const data = wrapper.__data;
