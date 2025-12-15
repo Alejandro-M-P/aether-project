@@ -17,7 +17,7 @@ const addRandomOffset = (location) => {
 	return newLocation;
 };
 
-// 1. Obtener coordenadas GPS/IP (Automático)
+// 1. Obtener GPS
 const getPreciseLocation = () => {
 	return new Promise((resolve) => {
 		if ("geolocation" in navigator) {
@@ -28,7 +28,7 @@ const getPreciseLocation = () => {
 						lon: position.coords.longitude,
 					}),
 				(error) => {
-					console.warn("GPS falló:", error);
+					console.warn("GPS error:", error);
 					resolve(null);
 				},
 				{ enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
@@ -39,7 +39,7 @@ const getPreciseLocation = () => {
 	});
 };
 
-// 2. Coordenadas -> Nombre Ciudad (Reverse Geocoding)
+// 2. Coordenadas -> Nombre (Para cuando dejas el campo vacío)
 const reverseGeocode = async (lat, lon) => {
 	try {
 		const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
@@ -51,6 +51,7 @@ const reverseGeocode = async (lat, lon) => {
 			? data.address.city ||
 					data.address.town ||
 					data.address.municipality ||
+					data.address.county ||
 					""
 			: "";
 	} catch (error) {
@@ -58,8 +59,7 @@ const reverseGeocode = async (lat, lon) => {
 	}
 };
 
-// 3. NUEVO: Nombre Ciudad -> Coordenadas (Forward Geocoding)
-// Esto arregla lo de "Alicante". Si escribes "Valencia", busca las coordenadas de Valencia.
+// 3. Nombre -> Coordenadas (Para cuando escribes manual)
 const getCoordsFromCityName = async (cityName) => {
 	try {
 		const url = `https://nominatim.openstreetmap.org/search?format=json&q=${cityName}&limit=1`;
@@ -72,7 +72,6 @@ const getCoordsFromCityName = async (cityName) => {
 		}
 		return null;
 	} catch (error) {
-		console.error("Error buscando ciudad:", error);
 		return null;
 	}
 };
@@ -83,25 +82,23 @@ export default function ControlBar() {
 	const [msg, setMsg] = useState("");
 	const [cat, setCat] = useState("");
 
-	// Estados para ubicación
+	// Estados Ubicación
 	const [manualCity, setManualCity] = useState("");
-	const [autoLocation, setAutoLocation] = useState(null); // Guardamos la ubicación detectada
+	const [autoLocation, setAutoLocation] = useState(null);
 	const [isLocating, setIsLocating] = useState(false);
 	const [isSending, setIsSending] = useState(false);
 
-	// Al abrir, intentamos localizar automáticamente
 	useEffect(() => {
 		if (open) {
 			setIsLocating(true);
-			setManualCity("Detectando...");
+			setManualCity(""); // Empezamos limpio
 			(async () => {
 				const loc = await getPreciseLocation();
 				if (loc) {
-					setAutoLocation(loc); // Guardamos coordenadas automáticas
+					setAutoLocation(loc);
 					const name = await reverseGeocode(loc.lat, loc.lon);
+					// Solo lo rellenamos visualmente para que sepas dónde estás
 					setManualCity(name || "");
-				} else {
-					setManualCity("");
 				}
 				setIsLocating(false);
 			})();
@@ -119,26 +116,38 @@ export default function ControlBar() {
 			let finalCoords = null;
 			let finalCityName = manualCity.trim();
 
-			// LÓGICA INTELIGENTE:
-			// 1. Si el usuario ha cambiado el nombre de la ciudad (ej: borró "Alicante" y puso "Valencia")
-			//    Buscamos las coordenadas de lo que ha escrito.
-			if (finalCityName && (!autoLocation || isLocating)) {
+			// CASO 1: Escribiste algo (ej: "Madrid")
+			if (finalCityName) {
+				// Intentamos buscar coordenadas de ese nombre
 				const coordsFromName = await getCoordsFromCityName(finalCityName);
 				if (coordsFromName) {
 					finalCoords = coordsFromName;
+				} else if (autoLocation) {
+					// Si escribiste algo raro que no existe, usamos tu GPS real como respaldo
+					finalCoords = autoLocation;
 				}
 			}
-			// 2. Si no ha tocado nada o falló la búsqueda por nombre, usamos el GPS/IP detectado
-			if (!finalCoords && autoLocation) {
-				finalCoords = autoLocation;
-			}
-			// 3. Si aún así tenemos coordenadas, intentamos buscar el nombre de nuevo si estaba vacío
-			if (finalCoords && !finalCityName) {
-				const coordsFromName = await getCoordsFromCityName(finalCityName);
-				if (coordsFromName) finalCoords = coordsFromName;
+			// CASO 2: NO escribiste nada (Campo vacío)
+			else {
+				if (autoLocation) {
+					finalCoords = autoLocation;
+					// IMPORTANTE: Si está vacío, buscamos el nombre real para no guardar "null"
+					const autoName = await reverseGeocode(
+						autoLocation.lat,
+						autoLocation.lon
+					);
+					finalCityName = autoName || "Localizado";
+				} else {
+					// Si no escribiste nada Y no hay GPS -> ERROR
+					alert(
+						"⚠️ No sé dónde ponerte en el mapa.\n\nPor favor, escribe el nombre de tu ciudad."
+					);
+					setIsSending(false);
+					return;
+				}
 			}
 
-			// Aplicar el desplazamiento aleatorio (para que no caiga siempre en el centro exacto)
+			// Aplicar el desplazamiento aleatorio de 1km
 			const randomizedLocation = finalCoords
 				? addRandomOffset(finalCoords)
 				: null;
@@ -150,7 +159,7 @@ export default function ControlBar() {
 				uid: user ? user.uid : "anonymous",
 				photoURL: user ? user.photoURL : null,
 				displayName: user ? user.displayName : "Anónimo",
-				cityName: finalCityName || null,
+				cityName: finalCityName,
 				location: randomizedLocation,
 			};
 
@@ -161,7 +170,7 @@ export default function ControlBar() {
 			setOpen(false);
 		} catch (error) {
 			console.error("Error enviando:", error);
-			alert("Error enviando.");
+			alert("Error enviando mensaje.");
 		} finally {
 			setIsSending(false);
 		}
@@ -222,7 +231,7 @@ export default function ControlBar() {
 										<input
 											value={manualCity}
 											onChange={(e) => setManualCity(e.target.value)}
-											placeholder={isLocating ? "..." : "CIUDAD"}
+											placeholder={isLocating ? "..." : "CIUDAD (Vacío = Auto)"}
 											className={`w-full bg-transparent border-b border-white/10 py-2 pl-5 text-[10px] md:text-xs font-mono tracking-widest uppercase focus:outline-none focus:border-emerald-500/50 text-center ${
 												isLocating
 													? "animate-pulse text-emerald-500"
