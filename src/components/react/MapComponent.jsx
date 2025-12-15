@@ -5,7 +5,7 @@ import { User, MapPin, MessageCircle, X } from "lucide-react";
 const GOOGLE_TILES_URL = (x, y, z) =>
 	`https://mt1.google.com/vt/lyrs=s&x=${x}&y=${y}&z=${z}`;
 
-// --- AVATAR PREDETERMINADO (Astronauta) ---
+// --- AVATAR PREDETERMINADO ---
 const DEFAULT_AVATAR =
 	"https://cdn-icons-png.flaticon.com/512/3214/3214823.png";
 
@@ -66,7 +66,6 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 			controls.dampingFactor = 0.1;
 			controls.enableDamping = true;
 
-			// Distancias de seguridad
 			controls.minDistance = globe.getGlobeRadius() * 1.01;
 			controls.maxDistance = globe.getGlobeRadius() * 9;
 			controls.zoomSpeed = 0.8;
@@ -83,7 +82,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 		}
 	}, [GlobePackage, ThreePackage, globeReady]);
 
-	// ZOOM INTELIGENTE (Solo para clics en el "suelo", no en fotos)
+	// ZOOM INTELIGENTE (Solo suelo)
 	const handleSmartZoom = (lat, lng) => {
 		if (!globeEl.current) return;
 		const currentPov = globeEl.current.pointOfView();
@@ -124,7 +123,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 				pointAltitude={0.001}
 				pointRadius={1.5}
 				pointColor={() => "rgba(0,0,0,0)"}
-				// Clic en el suelo (Punto 3D) -> Sí hace zoom
+				// CLIC EN SUELO -> Mueve mapa
 				onPointClick={(d) => {
 					setSelectedThoughtId(d.id);
 					handleSmartZoom(d.location.lat, d.location.lon);
@@ -147,8 +146,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 						const categoryClass =
 							CATEGORY_COLORS[category] || CATEGORY_COLORS["GENERAL"];
 
-						// --- CAMBIO: FOTO PREDETERMINADA ---
-						// Si photoURL es null, vacío o error, usamos el astronauta
+						// FOTO PREDETERMINADA SI FALLA
 						const photo =
 							d.photoURL && d.photoURL.length > 5 ? d.photoURL : DEFAULT_AVATAR;
 
@@ -161,44 +159,47 @@ export const MapComponent = ({ messages = [], openProfile }) => {
                                     </div>
                                 </div>
 
-                                <div class="px-4 py-3 flex items-start gap-3 border-b border-zinc-800 bg-zinc-900/50 rounded-t-xl">
-                                    <img src="${photo}" class="w-8 h-8 rounded-full border border-cyan-500/50 object-cover bg-black" />
-                                    <div class="flex-1 min-w-0">
-                                        <div class="flex items-center justify-between">
-                                            <span class="text-xs font-mono uppercase tracking-widest text-cyan-400 truncate max-w-[120px]">
-                                                ${
-																									d.displayName
-																										? d.displayName.split(
-																												" "
-																										  )[0]
-																										: "ANÓNIMO"
-																								}
-                                            </span>
-                                            <span class="px-2 py-0.5 rounded-full text-[9px] uppercase font-bold tracking-wider ${categoryClass}">
-                                                ${category}
-                                            </span>
-                                        </div>
+                                <div class="px-5 py-3 border-b border-zinc-800 bg-zinc-900/50 rounded-t-xl">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs font-mono uppercase tracking-widest text-cyan-400 truncate max-w-[140px]">
+                                            ${
+																							d.displayName
+																								? d.displayName.split(" ")[0]
+																								: "ANÓNIMO"
+																						}
+                                        </span>
+                                        <span class="px-2 py-0.5 rounded-full text-[9px] uppercase font-bold tracking-wider ${categoryClass}">
+                                            ${category}
+                                        </span>
                                     </div>
+                                    <span class="text-[10px] text-zinc-500 font-mono mt-1 flex items-center gap-1">
+                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                                        ${
+																					d.cityName ||
+																					d.countryName ||
+																					"Localizado"
+																				}
+                                    </span>
                                 </div>
 
-                                <div class="p-4 cursor-default">
+                                <div class="p-5 cursor-default">
                                     <p class="text-sm text-zinc-200 font-light leading-relaxed italic">"${
 																			d.text
 																		}"</p>
                                 </div>
-                                <button class="js-profile-btn w-full py-2 bg-black hover:bg-zinc-900 border-t border-zinc-800 text-[10px] text-cyan-500 uppercase tracking-widest transition-colors cursor-pointer flex items-center justify-center gap-2 rounded-b-xl">
-                                    VER PERFIL
+                                <button class="js-profile-btn w-full py-3 bg-black hover:bg-zinc-900 border-t border-zinc-800 text-[10px] text-cyan-500 uppercase tracking-widest transition-colors cursor-pointer flex items-center justify-center gap-2 rounded-b-xl">
+                                    VER PERFIL COMPLETO
                                 </button>
 
                                 <div class="absolute -bottom-1.5 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-zinc-950 border-r border-b border-zinc-800 rotate-45"></div>
                             </div>
 
                             <div class="js-icon-container cursor-pointer group relative transition-all duration-300" style="pointer-events: auto;">
-                                <img src="${photo}" class="js-marker-photo relative w-9 h-9 rounded-full object-cover border-2 border-cyan-500 transition-all duration-200 hover:scale-110 hover:border-white z-10 bg-black shadow-lg" />
+                                <img src="${photo}" class="js-marker-photo relative w-10 h-10 rounded-full object-cover border-2 border-cyan-500 transition-all duration-200 hover:border-white z-10 bg-black shadow-lg" />
                             </div>
                         `;
 
-						// BLOQUEO DE EVENTOS
+						// BLOQUEO EVENTOS
 						const killEvent = (e) => {
 							e.stopPropagation();
 							e.stopImmediatePropagation();
@@ -216,14 +217,11 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 							el.addEventListener("touchstart", killEvent);
 						});
 
-						// --- CLIC EN ICONO (SIN MOVIMIENTO DE MAPA) ---
+						// CLIC EN FOTO -> SOLO SELECCIONA (NO MUEVE)
 						iconContainer.addEventListener("click", (e) => {
 							killEvent(e);
 							const data = wrapper.__data;
-							if (data) {
-								setSelectedThoughtId(data.id);
-								// NO LLAMAMOS A handleSmartZoom -> Se queda quieto
-							}
+							if (data) setSelectedThoughtId(data.id);
 						});
 
 						if (closeBtn) {
@@ -249,7 +247,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 						markersRef.current[d.id] = wrapper;
 					}
 
-					// --- ACTUALIZACIÓN DE ESTADO VISUAL ---
+					// --- ACTUALIZACIÓN VISUAL ---
 					const el = markersRef.current[d.id];
 					el.__data = d;
 					const popupEl = el.querySelector(".js-popup");
@@ -259,32 +257,32 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 					const isAnySelected = selectedThoughtId !== null;
 
 					if (isSelected) {
-						// SI SOY EL ELEGIDO:
+						// SELECCIONADO: Solo mostramos popup y borde blanco. NO ESCALAMOS.
 						el.style.zIndex = "99999";
-						el.style.opacity = "1"; // Totalmente visible
-						el.style.pointerEvents = "auto"; // Clickable
+						el.style.opacity = "1";
+						el.style.pointerEvents = "auto";
 
 						if (popupEl) popupEl.style.display = "block";
 						if (photoEl) {
-							photoEl.classList.add("scale-125", "border-white");
+							photoEl.classList.add("border-white");
 							photoEl.classList.remove("border-cyan-500");
+							// ELIMINADO: 'scale-125' para que no salte
 						}
 					} else if (isAnySelected) {
-						// SI HAY OTRO ELEGIDO QUE NO SOY YO: (OCULTARSE)
+						// OTRO SELECCIONADO: Desaparecemos
 						el.style.zIndex = "0";
-						el.style.opacity = "0"; // Invisible
-						el.style.pointerEvents = "none"; // No se puede tocar
-
+						el.style.opacity = "0";
+						el.style.pointerEvents = "none";
 						if (popupEl) popupEl.style.display = "none";
 					} else {
-						// ESTADO NORMAL (Nadie seleccionado):
+						// NORMAL
 						el.style.zIndex = "10";
-						el.style.opacity = "1"; // Visible
-						el.style.pointerEvents = "auto"; // Clickable
+						el.style.opacity = "1";
+						el.style.pointerEvents = "auto";
 
 						if (popupEl) popupEl.style.display = "none";
 						if (photoEl) {
-							photoEl.classList.remove("scale-125", "border-white");
+							photoEl.classList.remove("border-white");
 							photoEl.classList.add("border-cyan-500");
 						}
 					}
