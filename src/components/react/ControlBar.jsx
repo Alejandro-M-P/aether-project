@@ -142,69 +142,70 @@ export default function ControlBar() {
 
 	return (
 		<>
-			{/* FOOTER - Z-INDEX 50 para asegurar que esté encima */}
-			<footer className="fixed bottom-0 left-0 right-0 z-50 w-full px-4 py-8 pointer-events-none flex justify-center">
-				<div className="pointer-events-auto flex items-center bg-zinc-900 backdrop-blur-xl border border-zinc-800 rounded-full shadow-[0_0_40px_rgba(0,0,0,0.5)] transition-all w-full max-w-lg group">
-					
+			{/* FOOTER - Z-INDEX 50 */}
+			<footer className="fixed bottom-0 left-0 right-0 z-50 w-full px-2 md:px-4 py-4 md:py-8 pointer-events-none flex justify-center">
+				<div className="pointer-events-auto flex items-center bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 rounded-full shadow-[0_0_40px_rgba(0,0,0,0.5)] transition-all w-[98%] max-w-lg group">
 					{/* BARRA DE BÚSQUEDA (50%) */}
-					<div className="flex items-center gap-3 w-1/2 pl-4 pr-3 py-2 border-r border-zinc-700/50">
-						<Search className="h-4 w-4 text-white/40 group-hover:text-cyan-400 transition-colors" />
+					<div className="flex items-center gap-2 md:gap-3 w-1/2 pl-4 pr-2 py-2 border-r border-zinc-700/50">
+						<Search className="h-3 w-3 md:h-4 md:w-4 text-white/40 group-hover:text-cyan-400 transition-colors" />
 						<input
 							type="text"
 							value={$searchQuery}
 							onChange={(e) => searchQuery.set(e.target.value)}
-							className="w-full bg-transparent border-none text-white/90 text-sm font-mono placeholder-white/30 focus:outline-none h-full"
-							placeholder="Buscar frecuencia..."
+							className="w-full bg-transparent border-none text-white/90 text-xs md:text-sm font-mono placeholder-white/30 focus:outline-none h-full"
+							placeholder="Buscar..."
 						/>
 					</div>
 
 					{/* BOTÓN TRANSMITIR (50%) */}
 					<button
 						onClick={() => setOpen(true)}
-						className="w-1/2 flex items-center justify-center gap-3 bg-transparent hover:bg-zinc-800/80 text-emerald-400 hover:text-white text-base font-mono uppercase tracking-widest px-6 py-4 rounded-r-full transition-all active:scale-[0.99] hover:shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+						className="w-1/2 flex items-center justify-center gap-2 md:gap-3 bg-transparent hover:bg-zinc-800/80 text-emerald-400 hover:text-white text-[10px] md:text-base font-mono uppercase tracking-widest px-4 py-3 md:px-6 md:py-4 rounded-r-full transition-all active:scale-[0.99] hover:shadow-[0_0_15px_rgba(16,185,129,0.3)]"
 					>
-                        <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]"></span>
-						TRANSMITIR SEÑAL
+						<span className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]"></span>
+						TRANSMITIR
 					</button>
 				</div>
 			</footer>
 
-			{/* MODAL - Z-INDEX 60 para estar encima de todo */}
+			{/* MODAL - Z-INDEX 60 */}
 			{open && (
-				<div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-60 flex items-center justify-center p-6">
-					<div className="w-full max-w-lg relative animate-in fade-in zoom-in duration-300">
+				<div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-60 flex items-center justify-center p-4 md:p-6 overflow-y-auto">
+					<div className="w-full max-w-lg relative animate-in fade-in zoom-in duration-300 my-auto">
+						{/* BOTÓN CERRAR: Dentro en móvil, Fuera en Desktop */}
 						<button
 							onClick={() => setOpen(false)}
-							className="absolute -top-12 right-0 text-zinc-500 hover:text-cyan-400 transition-colors flex items-center gap-2 text-xs font-mono uppercase tracking-widest cursor-pointer hover:drop-shadow-[0_0_5px_rgba(6,182,212,1)]"
+							className="absolute top-3 right-4 md:-top-12 md:right-0 text-zinc-500 hover:text-cyan-400 transition-colors flex items-center gap-2 text-xs font-mono uppercase tracking-widest cursor-pointer hover:drop-shadow-[0_0_5px_rgba(6,182,212,1)] z-10"
 						>
-							[ Cerrar ] <X size={20} />
+							<span className="hidden md:inline">[ Cerrar ]</span>{" "}
+							<X size={20} />
 						</button>
 
-						<div className="bg-zinc-950/95 border border-cyan-500/20 rounded-2xl p-8 shadow-[0_0_80px_rgba(6,182,212,0.2)] ring-2 ring-white/5 backdrop-blur-md">
-							<div className="text-center mb-8">
-								<h2 className="text-white font-mono text-sm tracking-[0.3em] uppercase opacity-70">
+						<div className="bg-zinc-950/95 border border-cyan-500/20 rounded-2xl p-6 md:p-8 shadow-[0_0_80px_rgba(6,182,212,0.2)] ring-2 ring-white/5 backdrop-blur-md">
+							<div className="text-center mb-6 md:mb-8 mt-2 md:mt-0">
+								<h2 className="text-white font-mono text-xs md:text-sm tracking-[0.3em] uppercase opacity-70">
 									Nueva Transmisión
 								</h2>
 							</div>
 
-							<form onSubmit={send} className="flex flex-col gap-6">
+							<form onSubmit={send} className="flex flex-col gap-4 md:gap-6">
 								<input
 									value={cat}
 									onChange={(e) => setCat(e.target.value)}
 									placeholder="CANAL / CATEGORÍA"
-									className="bg-transparent border-b border-white/10 py-2 text-white/60 text-xs font-mono tracking-0.1em text-center uppercase focus:outline-none focus:border-emerald-500/50 transition-colors"
+									className="bg-transparent border-b border-white/10 py-2 text-white/60 text-[10px] md:text-xs font-mono tracking-0.1em text-center uppercase focus:outline-none focus:border-emerald-500/50 transition-colors"
 								/>
 								<textarea
 									value={msg}
 									onChange={(e) => setMsg(e.target.value)}
-									className="bg-transparent text-white text-lg font-light text-center resize-none placeholder-white/20 focus:outline-none h-32 leading-relaxed"
-									placeholder="Escribe tu mensaje al vacío..."
+									className="bg-transparent text-white text-base md:text-lg font-light text-center resize-none placeholder-white/20 focus:outline-none h-24 md:h-32 leading-relaxed"
+									placeholder="Escribe tu mensaje..."
 									maxLength={280}
 									autoFocus
 								/>
 								<button
 									disabled={isSending}
-									className="w-full bg-emerald-900/20 hover:bg-emerald-800/50 border border-emerald-500/20 text-emerald-400 hover:text-white py-4 rounded-lg text-xs font-mono tracking-[0.2em] uppercase transition-all disabled:opacity-50 mt-2 group cursor-pointer hover:shadow-[0_0_20px_rgba(16,185,129,0.5)]"
+									className="w-full bg-emerald-900/20 hover:bg-emerald-800/50 border border-emerald-500/20 text-emerald-400 hover:text-white py-3 md:py-4 rounded-lg text-[10px] md:text-xs font-mono tracking-[0.2em] uppercase transition-all disabled:opacity-50 mt-2 group cursor-pointer hover:shadow-[0_0_20px_rgba(16,185,129,0.5)]"
 								>
 									{isSending ? (
 										<span className="animate-pulse">Enviando...</span>

@@ -50,7 +50,7 @@ export const UniverseCanvas = () => {
 	const [profilePosts, setProfilePosts] = useState([]);
 	const [loadingProfile, setLoadingProfile] = useState(false);
 	const [viewerLocation, setViewerLocation] = useState(null);
-	
+
 	// Estado para forzar re-render
 	const [particlesLoadedVersion, setParticlesLoadedVersion] = useState(0);
 	const $searchQuery = useStore(searchQuery);
@@ -69,7 +69,7 @@ export const UniverseCanvas = () => {
 			);
 			const querySnapshot = await getDocs(q);
 			const posts = [];
-			querySnapshot.forEach((doc) => posts.push({id: doc.id, ...doc.data()}));
+			querySnapshot.forEach((doc) => posts.push({ id: doc.id, ...doc.data() }));
 			setProfilePosts(posts);
 		} catch (error) {
 			console.error("Error cargando perfil", error);
@@ -109,8 +109,10 @@ export const UniverseCanvas = () => {
 			snapshot.docs.forEach((doc) => {
 				const data = doc.data();
 				if (data.message) {
-					const createdAt = data.timestamp ? data.timestamp.toMillis() : Date.now();
-					
+					const createdAt = data.timestamp
+						? data.timestamp.toMillis()
+						: Date.now();
+
 					// Lógica de proximidad
 					let isNearby = false;
 					if (viewerLocation && data.location) {
@@ -121,7 +123,9 @@ export const UniverseCanvas = () => {
 					valid.push({
 						id: doc.id,
 						text: data.message,
-						category: data.category ? String(data.category).toUpperCase() : "GENERAL",
+						category: data.category
+							? String(data.category).toUpperCase()
+							: "GENERAL",
 						uid: data.uid,
 						displayName: data.displayName,
 						photoURL: data.photoURL,
@@ -134,7 +138,9 @@ export const UniverseCanvas = () => {
 				}
 			});
 
-			particlesRef.current = valid.filter((p) => Date.now() - p.createdAt <= MESSAGE_LIFETIME);
+			particlesRef.current = valid.filter(
+				(p) => Date.now() - p.createdAt <= MESSAGE_LIFETIME
+			);
 			setParticlesLoadedVersion((v) => v + 1);
 		});
 		return () => unsubscribe();
@@ -171,8 +177,8 @@ export const UniverseCanvas = () => {
 
 			{selectedProfile && (
 				// MODAL PERFIL (Minimalista)
-				<div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
-					<div className="bg-black/95 border border-cyan-500/20 p-6 w-full max-w-md relative shadow-[0_0_80px_rgba(6,182,212,0.2)] backdrop-blur-md ring-1 ring-white/5">
+				<div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in zoom-in duration-200 overflow-y-auto">
+					<div className="bg-black/95 border border-cyan-500/20 p-5 md:p-6 w-full max-w-md relative shadow-[0_0_80px_rgba(6,182,212,0.2)] backdrop-blur-md ring-1 ring-white/5 my-auto">
 						<button
 							onClick={() => setSelectedProfile(null)}
 							className="absolute top-4 right-4 text-zinc-500 hover:text-cyan-400 transition-colors hover:drop-shadow-[0_0_5px_rgba(6,182,212,1)]"
@@ -180,15 +186,15 @@ export const UniverseCanvas = () => {
 							<X size={20} />
 						</button>
 
-						<div className="flex flex-col items-center mb-8">
+						<div className="flex flex-col items-center mb-6 md:mb-8">
 							<div className="relative">
 								<img
 									src={selectedProfile.photoURL || "/favicon.svg"}
 									alt="Profile"
-									className="w-20 h-20 rounded-full border-2 border-cyan-400 object-cover bg-black"
+									className="w-16 h-16 md:w-20 md:h-20 rounded-full border-2 border-cyan-400 object-cover bg-black"
 								/>
 							</div>
-							<h2 className="text-white font-mono text-xl mt-4 tracking-widest uppercase drop-shadow-[0_0_5px_rgba(255,255,255,0.2)]">
+							<h2 className="text-white font-mono text-lg md:text-xl mt-4 tracking-widest uppercase drop-shadow-[0_0_5px_rgba(255,255,255,0.2)]">
 								{selectedProfile.displayName || "Viajero"}
 							</h2>
 							<p className="text-cyan-400 text-[10px] font-mono uppercase tracking-widest mt-1">
@@ -215,7 +221,7 @@ export const UniverseCanvas = () => {
 										<div className="flex justify-end mt-3 items-center gap-2">
 											{post.countryName && (
 												<span className="text-[10px] text-zinc-600 font-mono uppercase flex items-center">
-													<MapPin size={10} className="mr-1 text-zinc-700"/>
+													<MapPin size={10} className="mr-1 text-zinc-700" />
 													{post.cityName || post.countryName}
 												</span>
 											)}
