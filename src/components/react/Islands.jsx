@@ -42,12 +42,14 @@ const distanceBetween = (loc1, loc2) => {
 };
 
 export const UniverseCanvas = () => {
-	const particlesRef = useRef([]);
+	// Usamos 'rawDocs' para guardar lo que viene de Firebase sin procesar
+	const rawDocsRef = useRef([]);
 	const [selectedProfile, setSelectedProfile] = useState(null);
 	const [profilePosts, setProfilePosts] = useState([]);
 	const [loadingProfile, setLoadingProfile] = useState(false);
 	const [viewerLocation, setViewerLocation] = useState(null);
-	const [particlesLoadedVersion, setParticlesLoadedVersion] = useState(0);
+	// Este estado sirve para forzar la actualización visual cuando llegan datos
+	const [dataVersion, setDataVersion] = useState(0);
 	const $searchQuery = useStore(searchQuery);
 
 	// --- LIMPIEZA AUTOMÁTICA ---
@@ -93,9 +95,9 @@ export const UniverseCanvas = () => {
 
 	const openProfileMemo = useMemo(() => openProfile, []);
 
+	// EFECTO 1: SOLO GEOLOCALIZACIÓN
 	useEffect(() => {
 		cleanupOldThoughts();
-
 		if (typeof window !== "undefined" && "geolocation" in navigator) {
 			navigator.geolocation.getCurrentPosition(
 				(position) => {
@@ -104,11 +106,15 @@ export const UniverseCanvas = () => {
 						lon: position.coords.longitude,
 					});
 				},
-				(error) => console.warn("Geo error:", error)
+				(error) => console.warn("Geo error:", error),
+				{ enableHighAccuracy: false, timeout: 10000 }
 			);
 		}
+	}, []); // Solo se ejecuta al montar, no depende de nada más
 
-		// OPTIMIZACIÓN: Bajamos el límite a 60 para que vaya rápido en móviles
+	// EFECTO 2: SOLO CONEXIÓN A FIREBASE
+	useEffect(() => {
+		// Obtenemos los últimos 60 mensajes
 		const q = query(
 			collection(db, "thoughts"),
 			orderBy("timestamp", "desc"),
@@ -116,55 +122,57 @@ export const UniverseCanvas = () => {
 		);
 
 		const unsubscribe = onSnapshot(q, (snapshot) => {
-			const valid = [];
+			const rawData = [];
 			snapshot.docs.forEach((doc) => {
 				const data = doc.data();
-				if (data.message) {
+				if (data.message && data.location) {
 					const createdAt = data.timestamp
 						? data.timestamp.toMillis()
 						: Date.now();
 					const isExpired = Date.now() - createdAt > MESSAGE_LIFETIME;
 
 					if (!isExpired) {
-						let isNearby = false;
-						if (viewerLocation && data.location) {
-							const dist = distanceBetween(viewerLocation, data.location);
-							if (dist < PROXIMITY_DEGREES) isNearby = true;
-						}
-						valid.push({
+						// Guardamos los datos crudos, la distancia se calcula después
+						rawData.push({
 							id: doc.id,
-							text: data.message,
+							...data,
 							category: data.category
 								? String(data.category).toUpperCase()
 								: "GENERAL",
-							uid: data.uid,
-							displayName: data.displayName,
-							photoURL: data.photoURL,
 							createdAt: createdAt,
-							location: data.location || null,
-							cityName: data.cityName || null,
-							countryName: data.countryName || null,
-							isNearby: isNearby,
 						});
 					}
 				}
 			});
-			particlesRef.current = valid;
-			setParticlesLoadedVersion((v) => v + 1);
+			// Guardamos en referencia y avisamos a React para que pinte
+			rawDocsRef.current = rawData;
+			setDataVersion((v) => v + 1);
 		});
 		return () => unsubscribe();
-	}, [viewerLocation]);
+	}, []); // IMPORTANTE: Array vacío. La conexión NO se reinicia si te mueves.
 
-	const filteredMessages = useMemo(() => {
+	// PROCESAMIENTO: Aquí unimos Datos + Búsqueda + GPS
+	const processedMessages = useMemo(() => {
 		const filterText = $searchQuery.toLowerCase().trim();
-		return particlesRef.current.filter((p) => {
-			if (!filterText) return true;
-			return (
-				p.text.toLowerCase().includes(filterText) ||
-				p.category.toLowerCase().includes(filterText)
-			);
-		});
-	}, [particlesLoadedVersion, $searchQuery]);
+
+		return rawDocsRef.current
+			.filter((p) => {
+				if (!filterText) return true;
+				return (
+					p.message.toLowerCase().includes(filterText) ||
+					p.category.toLowerCase().includes(filterText)
+				);
+			})
+			.map((p) => {
+				// Calculamos la distancia aquí, en tiempo real
+				let isNearby = false;
+				if (viewerLocation && p.location) {
+					const dist = distanceBetween(viewerLocation, p.location);
+					if (dist < PROXIMITY_DEGREES) isNearby = true;
+				}
+				return { ...p, isNearby, text: p.message }; // Aseguramos que 'text' existe para el mapa
+			});
+	}, [dataVersion, $searchQuery, viewerLocation]); // Se recalcula si cambia algo de esto
 
 	return (
 		<>
@@ -177,7 +185,7 @@ export const UniverseCanvas = () => {
 					}
 				>
 					<MapComponent
-						messages={filteredMessages}
+						messages={processedMessages}
 						openProfile={openProfileMemo}
 					/>
 				</React.Suspense>
