@@ -60,8 +60,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 			controls.dampingFactor = 0.1;
 			controls.enableDamping = true;
 
-			// --- ZOOM EXTREMO ---
-			// Antes: 1.002. Ahora: 1.0001 (Te deja pegar la nariz al suelo)
+			// --- ZOOM EXTREMO (Mantenido) ---
 			controls.minDistance = globe.getGlobeRadius() * 1.0001;
 			controls.maxDistance = globe.getGlobeRadius() * 9;
 			controls.zoomSpeed = 0.8;
@@ -81,7 +80,6 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 	const handleSmartZoom = (lat, lng) => {
 		if (!globeEl.current) return;
 		const currentPov = globeEl.current.pointOfView();
-		// Baja a 0.05 de altura (muy cerca)
 		const targetAltitude =
 			currentPov.altitude > 0.3 ? 0.05 : currentPov.altitude;
 		globeEl.current.pointOfView(
@@ -157,7 +155,12 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 							CATEGORY_COLORS[category] || CATEGORY_COLORS["GENERAL"];
 						const photo =
 							d.photoURL && d.photoURL.length > 5 ? d.photoURL : DEFAULT_AVATAR;
+
 						const locationText = getLocationText(d);
+
+						// --- ARREGLO DEL "UNDEFINED" ---
+						// Buscamos d.text O d.message. Si ambos fallan, cadena vacía.
+						const finalMessage = d.text || d.message || "";
 
 						wrapper.innerHTML = `
                             <div class="js-popup relative mb-3 w-72 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl transition-all duration-200" style="pointer-events: auto; display: none;">
@@ -185,9 +188,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
                                     </span>
                                 </div>
                                 <div class="p-5 cursor-default">
-                                    <p class="text-sm text-zinc-200 font-light leading-relaxed italic">"${
-																			d.text
-																		}"</p>
+                                    <p class="text-sm text-zinc-200 font-light leading-relaxed italic">"${finalMessage}"</p>
                                 </div>
                                 <button class="js-profile-btn w-full py-3 bg-black hover:bg-zinc-900 border-t border-zinc-800 text-[10px] text-cyan-500 uppercase tracking-widest transition-colors cursor-pointer flex items-center justify-center gap-2 rounded-b-xl">
                                     VER PERFIL COMPLETO
