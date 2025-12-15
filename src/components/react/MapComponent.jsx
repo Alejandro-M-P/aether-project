@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { User, MapPin, MessageCircle } from "lucide-react";
+// Mantenemos tus iconos
+import { User, MapPin, MessageCircle, X } from "lucide-react";
 
+// --- GOOGLE MAPS TILES ---
 const GOOGLE_TILES_URL = (x, y, z) =>
 	`https://mt1.google.com/vt/lyrs=s&x=${x}&y=${y}&z=${z}`;
 
+// Mapa de colores
 const CATEGORY_COLORS = {
 	IDEAS: "text-yellow-400 bg-yellow-400/10 border-yellow-400/20",
 	NOTICIAS: "text-purple-400 bg-purple-400/10 border-purple-400/20",
@@ -20,6 +23,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 	const [globeReady, setGlobeReady] = useState(false);
 	const markersRef = useRef({});
 
+	// 1. CARGA LIBRERÍAS
 	useEffect(() => {
 		if (typeof window !== "undefined") {
 			Promise.all([import("react-globe.gl"), import("three")]).then(
@@ -32,6 +36,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 		}
 	}, []);
 
+	// 2. RESIZE
 	useEffect(() => {
 		if (typeof window === "undefined") return;
 		const handleResize = () =>
@@ -41,6 +46,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 		return () => window.removeEventListener("resize", handleResize);
 	}, []);
 
+	// 3. CONFIGURACIÓN TÉCNICA (CÁMARA Y CONTROLES)
 	useEffect(() => {
 		if (GlobePackage && ThreePackage && globeEl.current && !globeReady) {
 			setGlobeReady(true);
@@ -48,7 +54,6 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 			const THREE = ThreePackage;
 
 			const renderer = globe.renderer();
-			// OPTIMIZACIÓN: Capar la resolución a 2x máximo (evita lag en móviles Retina)
 			renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 			renderer.antialias = true;
 
@@ -56,9 +61,13 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 			controls.autoRotate = false;
 			controls.enableZoom = true;
 			controls.dampingFactor = 0.1;
-			controls.minDistance = globe.getGlobeRadius() * 1.01;
+
+			// --- CORRECCIÓN ZOOM: Te permite acercarte muchísimo más ---
+			// 1.001 significa que puedes bajar hasta el 0.1% de altura
+			controls.minDistance = globe.getGlobeRadius() * 1.001;
 			controls.maxDistance = globe.getGlobeRadius() * 9;
 
+			// Iluminación
 			globe.scene().children = globe
 				.scene()
 				.children.filter(
@@ -71,14 +80,23 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 		}
 	}, [GlobePackage, ThreePackage, globeReady]);
 
+	// LÓGICA DE ZOOM INTELIGENTE AJUSTADA
 	const handleSmartZoom = (lat, lng) => {
 		if (!globeEl.current) return;
 		const currentPov = globeEl.current.pointOfView();
+
+		// Si estamos lejos (>0.6), nos acercamos mucho más (a 0.15 en vez de 0.35)
+		// para que se vea bien el detalle del mapa satélite.
 		const targetAltitude =
-			currentPov.altitude > 0.6 ? 0.35 : currentPov.altitude;
+			currentPov.altitude > 0.6 ? 0.15 : currentPov.altitude;
+
 		globeEl.current.pointOfView(
-			{ lat: lat, lng: lng, altitude: targetAltitude },
-			1200
+			{
+				lat: lat,
+				lng: lng,
+				altitude: targetAltitude,
+			},
+			1000
 		);
 	};
 
@@ -136,12 +154,11 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 							d.photoURL ||
 							"https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png";
 
-						// OPTIMIZACIÓN: Quitados 'backdrop-blur', sombras pesadas y efectos 'glow' constantes
 						wrapper.innerHTML = `
                             <div class="js-popup absolute bottom-[115%] mb-2 w-72 bg-zinc-950 border border-zinc-800 rounded-lg shadow-lg origin-bottom transition-all duration-200 overflow-hidden" style="pointer-events: auto; display: none;">
-                                <div class="px-4 py-3 flex items-start gap-3 border-b border-zinc-800 bg-zinc-900/50">
+                                <div class="px-4 py-3 flex items-start gap-3 border-b border-zinc-800 bg-zinc-900/50 relative">
                                     <img src="${photo}" class="w-8 h-8 rounded-full border border-cyan-500/50 object-cover bg-black" />
-                                    <div class="flex-1 min-w-0">
+                                    <div class="flex-1 min-w-0 mr-4">
                                         <div class="flex items-center justify-between">
                                             <span class="text-xs font-mono uppercase tracking-widest text-cyan-400 truncate max-w-[120px]">
                                                 ${
@@ -157,7 +174,12 @@ export const MapComponent = ({ messages = [], openProfile }) => {
                                             </span>
                                         </div>
                                     </div>
+
+                                    <button class="js-close-btn absolute top-2 right-2 text-zinc-500 hover:text-white p-1 rounded hover:bg-zinc-800/50 transition-colors">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                    </button>
                                 </div>
+
                                 <div class="p-4">
                                     <p class="text-sm text-zinc-200 font-light leading-relaxed italic">"${
 																			d.text
@@ -178,10 +200,13 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 						const iconContainer = wrapper.querySelector(".js-icon-container");
 						const popup = wrapper.querySelector(".js-popup");
 						const btn = wrapper.querySelector(".js-profile-btn");
+						const closeBtn = wrapper.querySelector(".js-close-btn");
 
+						// Evitar que el clic en el popup cierre el popup
 						iconContainer.addEventListener("mousedown", stopProp);
 						if (popup) popup.addEventListener("mousedown", stopProp);
 
+						// Click en icono abre/centra
 						iconContainer.addEventListener("click", (e) => {
 							e.stopPropagation();
 							const data = wrapper.__data;
@@ -191,6 +216,15 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 							}
 						});
 
+						// Click en botón X cierra
+						if (closeBtn) {
+							closeBtn.addEventListener("click", (e) => {
+								e.stopPropagation(); // Evita que pase al mapa
+								setSelectedThoughtId(null);
+							});
+						}
+
+						// Click en perfil
 						if (btn) {
 							btn.addEventListener("click", (e) => {
 								e.stopPropagation();
