@@ -60,7 +60,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 			controls.dampingFactor = 0.1;
 			controls.enableDamping = true;
 
-			// ZOOM SETUP
+			// Distancias de zoom
 			controls.minDistance = globe.getGlobeRadius() * 1.008;
 			controls.maxDistance = globe.getGlobeRadius() * 9;
 			controls.zoomSpeed = 0.8;
@@ -77,15 +77,16 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 		}
 	}, [GlobePackage, ThreePackage, globeReady]);
 
+	// ZOOM LÓGICA: Solo si estás lejos (> 0.25). Si estás cerca, NO se mueve.
 	const handleSmartZoom = (lat, lng) => {
 		if (!globeEl.current) return;
 		const currentPov = globeEl.current.pointOfView();
-		const targetAltitude =
-			currentPov.altitude > 0.4 ? 0.12 : currentPov.altitude;
-		globeEl.current.pointOfView(
-			{ lat: lat, lng: lng, altitude: targetAltitude },
-			1000
-		);
+
+		// Si la altura es mayor a 0.25, bajamos a 0.12.
+		// Si ya estás más bajo de 0.25, nos quedamos quietos (target = current).
+		if (currentPov.altitude > 0.25) {
+			globeEl.current.pointOfView({ lat: lat, lng: lng, altitude: 0.12 }, 1000);
+		}
 	};
 
 	const mapData = useMemo(() => {
@@ -130,7 +131,8 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 				pointLat={(d) => d.location.lat}
 				pointLng={(d) => d.location.lon}
 				pointAltitude={0.001}
-				pointRadius={1.5}
+				// RADIO REDUCIDO: De 1.5 a 0.25 para que no detecte clics en el mar
+				pointRadius={0.25}
 				pointColor={() => "rgba(0,0,0,0)"}
 				onPointClick={(d) => {
 					setSelectedThoughtId(d.id);
@@ -144,9 +146,10 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 				htmlElement={(d) => {
 					if (!markersRef.current[d.id]) {
 						const wrapper = document.createElement("div");
-						// Usamos 'relative' para que los hijos absolutos se posicionen respecto a esto
-						wrapper.className =
-							"relative flex flex-col items-center justify-end transform -translate-x-1/2 -translate-y-[100%]";
+						// El wrapper ahora tiene tamaño 0 para no afectar al layout
+						wrapper.className = "absolute flex items-center justify-center";
+						// translate-y-[-50%] centra verticalmente el punto de anclaje
+						wrapper.style.transform = "translate(-50%, -50%)";
 						wrapper.style.pointerEvents = "none";
 
 						const category = d.category
@@ -161,42 +164,49 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 						const finalMessage = d.text || d.message || "";
 
 						wrapper.innerHTML = `
-                            <div class="js-popup absolute bottom-[calc(100%+12px)] left-1/2 transform -translate-x-1/2 w-72 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl transition-all duration-200 z-[99999]" style="pointer-events: auto; display: none;">
+                            <div class="relative flex flex-col items-center">
 
-                                <div class="js-close-btn absolute -top-3 -right-3 w-10 h-10 flex items-center justify-center cursor-pointer z-[100]">
-                                    <div class="w-7 h-7 bg-black border border-zinc-600 rounded-full flex items-center justify-center text-zinc-300 hover:text-white hover:bg-zinc-800 hover:scale-110 transition-all shadow-lg">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                    </div>
-                                </div>
-                                <div class="px-5 py-3 border-b border-zinc-800 bg-zinc-900/50 rounded-t-xl">
-                                    <div class="flex items-center justify-between">
-                                        <span class="text-xs font-mono uppercase tracking-widest text-cyan-400 truncate max-w-[140px]">
-                                            ${
-																							d.displayName
-																								? d.displayName.split(" ")[0]
-																								: "ANÓNIMO"
-																						}
-                                        </span>
-                                        <span class="px-2 py-0.5 rounded-full text-[9px] uppercase font-bold tracking-wider ${categoryClass}">
-                                            ${category}
-                                        </span>
-                                    </div>
-                                    <span class="text-[10px] text-zinc-500 font-mono mt-1 flex items-center gap-1">
-                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-                                        ${locationText}
-                                    </span>
-                                </div>
-                                <div class="p-5 cursor-default">
-                                    <p class="text-sm text-zinc-200 font-light leading-relaxed italic">"${finalMessage}"</p>
-                                </div>
-                                <button class="js-profile-btn w-full py-3 bg-black hover:bg-zinc-900 border-t border-zinc-800 text-[10px] text-cyan-500 uppercase tracking-widest transition-colors cursor-pointer flex items-center justify-center gap-2 rounded-b-xl">
-                                    VER PERFIL COMPLETO
-                                </button>
-                                <div class="absolute -bottom-1.5 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-zinc-950 border-r border-b border-zinc-800 rotate-45"></div>
-                            </div>
+                                <div class="js-popup absolute bottom-[100%] mb-4 w-72 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl transition-all duration-200 z-[99999]" style="pointer-events: auto; display: none;">
 
-                            <div class="js-icon-container cursor-pointer group relative transition-all duration-300 z-10" style="pointer-events: auto;">
-                                <img src="${photo}" class="js-marker-photo relative w-10 h-10 rounded-full object-cover border-2 border-cyan-500 transition-all duration-200 hover:border-white z-10 bg-black shadow-lg" />
+                                    <div class="js-close-btn absolute -top-3 -right-3 w-10 h-10 flex items-center justify-center cursor-pointer z-[100]">
+                                        <div class="w-7 h-7 bg-black border border-zinc-600 rounded-full flex items-center justify-center text-zinc-300 hover:text-white hover:bg-zinc-800 hover:scale-110 transition-all shadow-lg">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                        </div>
+                                    </div>
+
+                                    <div class="px-5 py-3 border-b border-zinc-800 bg-zinc-900/50 rounded-t-xl">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-xs font-mono uppercase tracking-widest text-cyan-400 truncate max-w-[140px]">
+                                                ${
+																									d.displayName
+																										? d.displayName.split(
+																												" "
+																										  )[0]
+																										: "ANÓNIMO"
+																								}
+                                            </span>
+                                            <span class="px-2 py-0.5 rounded-full text-[9px] uppercase font-bold tracking-wider ${categoryClass}">
+                                                ${category}
+                                            </span>
+                                        </div>
+                                        <span class="text-[10px] text-zinc-500 font-mono mt-1 flex items-center gap-1">
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                                            ${locationText}
+                                        </span>
+                                    </div>
+                                    <div class="p-5 cursor-default">
+                                        <p class="text-sm text-zinc-200 font-light leading-relaxed italic">"${finalMessage}"</p>
+                                    </div>
+                                    <button class="js-profile-btn w-full py-3 bg-black hover:bg-zinc-900 border-t border-zinc-800 text-[10px] text-cyan-500 uppercase tracking-widest transition-colors cursor-pointer flex items-center justify-center gap-2 rounded-b-xl">
+                                        VER PERFIL COMPLETO
+                                    </button>
+
+                                    <div class="absolute -bottom-1.5 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-zinc-950 border-r border-b border-zinc-800 rotate-45"></div>
+                                </div>
+
+                                <div class="js-icon-container cursor-pointer group relative z-10" style="pointer-events: auto;">
+                                    <img src="${photo}" class="js-marker-photo w-10 h-10 rounded-full object-cover border-2 border-cyan-500 transition-all duration-200 hover:border-white bg-black shadow-lg" />
+                                </div>
                             </div>
                         `;
 
@@ -219,7 +229,11 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 						iconContainer.addEventListener("click", (e) => {
 							killEvent(e);
 							const data = wrapper.__data;
-							if (data) setSelectedThoughtId(data.id);
+							if (data) {
+								setSelectedThoughtId(data.id);
+								// IMPORTANTE: También intentamos zoom aquí por si clicamos la foto y no el punto
+								handleSmartZoom(data.location.lat, data.location.lon);
+							}
 						});
 
 						if (closeBtn) {
