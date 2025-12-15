@@ -95,7 +95,7 @@ const ProfileModal = ({ user, onClose }) => {
 							<button
 								onClick={() => fileInputRef.current?.click()}
 								disabled={isUploading}
-								className="flex-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs py-2 rounded flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+								className="flex-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs py-2 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
 							>
 								{isUploading ? (
 									<span className="animate-pulse">Subiendo...</span>
@@ -119,7 +119,7 @@ const ProfileModal = ({ user, onClose }) => {
 								<ImageIcon size={14} className="text-zinc-500" />
 							</div>
 							<input
-								className="w-full bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs py-2 pl-9 pr-3 rounded focus:outline-none focus:border-cyan-500/50 placeholder-zinc-600 font-mono"
+								className="w-full bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs py-2 pl-9 pr-3 rounded-lg focus:outline-none focus:border-cyan-500/50 placeholder-zinc-600 font-mono"
 								value={newPhotoURL}
 								onChange={(e) => setNewPhotoURL(e.target.value)}
 								placeholder="O pega una URL de imagen..."
@@ -137,7 +137,7 @@ const ProfileModal = ({ user, onClose }) => {
 								<User size={14} className="text-zinc-500" />
 							</div>
 							<input
-								className="w-full bg-zinc-900 border border-zinc-800 text-white text-sm py-2 pl-9 pr-3 rounded focus:outline-none focus:border-cyan-500/50 placeholder-zinc-600 font-mono"
+								className="w-full bg-zinc-900 border border-zinc-800 text-white text-sm py-2 pl-9 pr-3 rounded-lg focus:outline-none focus:border-cyan-500/50 placeholder-zinc-600 font-mono"
 								value={newDisplayName}
 								onChange={(e) => setNewDisplayName(e.target.value)}
 								placeholder="Tu nombre..."
@@ -149,7 +149,7 @@ const ProfileModal = ({ user, onClose }) => {
 					<div className="pt-4 border-t border-zinc-800 flex flex-col gap-3">
 						<button
 							onClick={handleSave}
-							className="w-full bg-cyan-900/20 hover:bg-cyan-800/30 border border-cyan-500/30 text-cyan-400 py-3 rounded text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:shadow-[0_0_15px_rgba(6,182,212,0.2)]"
+							className="w-full bg-cyan-900/20 hover:bg-cyan-800/30 border border-cyan-500/30 text-cyan-400 py-3 rounded-lg text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:shadow-[0_0_15px_rgba(6,182,212,0.2)]"
 						>
 							<Save size={14} /> Guardar Cambios
 						</button>
@@ -214,7 +214,7 @@ export const UserWidget = () => {
 				{user ? (
 					<button
 						onClick={() => setIsProfileModalOpen(true)}
-						className="flex items-center gap-3 bg-zinc-900/80 backdrop-blur border border-white/5 px-3 py-2 rounded-full hover:scale-[0.98] transition hover:border-cyan-500/50 hover:shadow-[0_0_10px_rgba(6,182,212,0.1)]"
+						className="flex items-center gap-2 bg-zinc-900/80 backdrop-blur border border-white/5 px-4 py-2 rounded-full hover:scale-[0.98] transition hover:border-cyan-500/50 hover:shadow-[0_0_10px_rgba(6,182,212,0.1)]"
 					>
 						<img
 							src={user.photoURL || "/favicon.svg"}

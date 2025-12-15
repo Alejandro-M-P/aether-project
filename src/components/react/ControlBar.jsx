@@ -307,7 +307,8 @@ export default function ControlBar() {
 
 					{/* Menú Desplegable de Categorías del Footer */}
 					{isCatMenuOpen && (
-						<div className="absolute bottom-[130%] left-0 w-full min-w-[200px] bg-zinc-950/95 backdrop-blur-xl border border-zinc-800 rounded-xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom-2 fade-in duration-200">
+						// Esquina estandarizada: rounded-lg
+						<div className="absolute bottom-[130%] left-0 w-full min-w-[200px] bg-zinc-950/95 backdrop-blur-xl border border-zinc-800 rounded-lg overflow-hidden shadow-2xl animate-in slide-in-from-bottom-2 fade-in duration-200">
 							<div className="max-h-60 overflow-y-auto custom-scrollbar p-1">
 								<button
 									onClick={(e) => {
@@ -367,8 +368,8 @@ export default function ControlBar() {
 							<X size={20} />
 						</button>
 
-						{/* --- CONTENEDOR PRINCIPAL DEL MODAL --- */}
-						<div className="bg-zinc-950/95 border border-cyan-500/20 rounded-2xl p-6 md:p-8 shadow-[0_0_80px_rgba(6,182,212,0.2)] ring-2 ring-white/5 backdrop-blur-md">
+						{/* --- CONTENEDOR PRINCIPAL DEL MODAL (rounded-lg) --- */}
+						<div className="bg-zinc-950/95 border border-cyan-500/20 rounded-lg p-6 md:p-8 shadow-[0_0_80px_rgba(6,182,212,0.2)] ring-2 ring-white/5 backdrop-blur-md">
 							<div className="text-center mb-6 md:mb-8 mt-2 md:mt-0">
 								<h2 className="text-white font-mono text-xs md:text-sm tracking-[0.3em] uppercase opacity-70">
 									Nueva Transmisión
@@ -391,16 +392,16 @@ export default function ControlBar() {
 												onBlur={() =>
 													setTimeout(() => setShowCatSuggestions(false), 200)
 												}
-												// placeholder eliminado para usar el label
+												// Altura consistente: py-3
 												className="w-full bg-transparent py-3 pl-4 pr-8 text-white text-sm font-mono tracking-wide focus:outline-none placeholder-white/30"
 												autoComplete="off"
 											/>
 											<ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cyan-400 pointer-events-none" />
 										</div>
 
-										{/* Lista Desplegable: SOLO SELECCIÓN/BÚSQUEDA */}
+										{/* Lista Desplegable: SOLO SELECCIÓN/BÚSQUEDA (rounded-lg) */}
 										{showCatSuggestions && (
-											<div className="absolute top-[calc(100%+5px)] left-0 w-full mt-1 rounded-md shadow-2xl z-[100] flex flex-col overflow-hidden bg-zinc-950 border border-cyan-500/30 max-h-[12rem]">
+											<div className="absolute top-[calc(100%+5px)] left-0 w-full mt-1 rounded-lg shadow-2xl z-[100] flex flex-col overflow-hidden bg-zinc-950 border border-cyan-500/30 max-h-[12rem]">
 												<div className="flex flex-col overflow-y-auto custom-scrollbar">
 													{filteredCats.length > 0 && (
 														<div className="px-3 py-2 text-[8px] text-zinc-600 font-mono uppercase bg-zinc-900/50 tracking-wider sticky top-0 border-b border-zinc-800">
@@ -436,7 +437,7 @@ export default function ControlBar() {
 										)}
 									</div>
 
-									{/* 2/2: BOTÓN CREAR (Siempre visible) */}
+									{/* 2/2: BOTÓN CREAR (Consistencia de altura con py-3) */}
 									<div className="w-1/2 flex items-start pt-[1.7rem] relative">
 										<button
 											type="button"
@@ -472,7 +473,7 @@ export default function ControlBar() {
 									</div>
 								</div>
 
-								{/* --- FILA INFERIOR: UBICACIÓN MEJORADA --- */}
+								{/* --- FILA INFERIOR: UBICACIÓN MEJORADA (rounded-lg, py-3) --- */}
 								<div className="relative z-0 border border-cyan-700/50 rounded-lg shadow-inner shadow-black/50 bg-zinc-900/50 px-4 py-3 flex items-center">
 									<MapPin className="w-5 h-5 text-cyan-400 mr-3" />
 
@@ -495,7 +496,7 @@ export default function ControlBar() {
 									</button>
 								</div>
 
-								{/* --- CAMPO DE MENSAJE --- */}
+								{/* --- CAMPO DE MENSAJE (rounded-lg) --- */}
 								<textarea
 									value={msg}
 									onChange={(e) => setMsg(e.target.value)}
@@ -504,10 +505,11 @@ export default function ControlBar() {
 									maxLength={4000}
 								/>
 
-								{/* --- BOTÓN ENVIAR --- */}
+								{/* --- BOTÓN ENVIAR (rounded-lg, py-3) --- */}
 								<button
 									disabled={isSending || !msg.trim()}
-									className="w-full bg-emerald-900/20 hover:bg-emerald-800/50 border border-emerald-500/20 text-emerald-400 hover:text-white py-3 md:py-4 rounded-lg text-xs font-mono tracking-[0.2em] uppercase transition-all disabled:opacity-50 mt-2 group cursor-pointer hover:shadow-[0_0_20px_rgba(16,185,129,0.5)] disabled:cursor-not-allowed"
+									// Estandarizado a py-3 para altura uniforme con inputs
+									className="w-full bg-emerald-900/20 hover:bg-emerald-800/50 border border-emerald-500/20 text-emerald-400 hover:text-white py-3 rounded-lg text-xs font-mono tracking-[0.2em] uppercase transition-all disabled:opacity-50 mt-2 group cursor-pointer hover:shadow-[0_0_20px_rgba(16,185,129,0.5)] disabled:cursor-not-allowed"
 								>
 									{isSending ? (
 										<span className="animate-pulse">Enviando...</span>
