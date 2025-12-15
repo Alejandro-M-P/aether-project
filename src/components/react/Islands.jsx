@@ -30,7 +30,7 @@ const MapComponent = React.lazy(() =>
 		})
 );
 
-// 2 Horas de duración (7200000 ms)
+// 2 Horas de duración
 const MESSAGE_LIFETIME = 7200000;
 const PROXIMITY_DEGREES = 0.05;
 
@@ -50,33 +50,22 @@ export const UniverseCanvas = () => {
 	const [particlesLoadedVersion, setParticlesLoadedVersion] = useState(0);
 	const $searchQuery = useStore(searchQuery);
 
-	// --- FUNCIÓN DE LIMPIEZA AUTOMÁTICA (El "Basurero") ---
+	// --- LIMPIEZA AUTOMÁTICA ---
 	const cleanupOldThoughts = async () => {
 		try {
-			// Calcula la fecha de hace 2 horas
 			const cutoffDate = new Date(Date.now() - MESSAGE_LIFETIME);
-
-			// Busca mensajes más viejos que esa fecha
 			const q = query(
 				collection(db, "thoughts"),
 				where("timestamp", "<=", cutoffDate)
 			);
-
 			const snapshot = await getDocs(q);
 			if (!snapshot.empty) {
-				console.log(`🧹 Limpiando ${snapshot.size} mensajes caducados...`);
-				// Borra cada documento encontrado
-				snapshot.forEach((doc) => {
-					deleteDoc(doc.ref).catch((err) =>
-						console.error("Error borrando msg:", err)
-					);
-				});
+				snapshot.forEach((doc) =>
+					deleteDoc(doc.ref).catch((e) => console.error(e))
+				);
 			}
 		} catch (error) {
-			console.warn(
-				"Error en limpieza automática (puede requerir índices en Firebase):",
-				error
-			);
+			console.warn("Limpieza:", error);
 		}
 	};
 
@@ -105,10 +94,8 @@ export const UniverseCanvas = () => {
 	const openProfileMemo = useMemo(() => openProfile, []);
 
 	useEffect(() => {
-		// Ejecutar limpieza al iniciar
 		cleanupOldThoughts();
 
-		// Geolocalización
 		if (typeof window !== "undefined" && "geolocation" in navigator) {
 			navigator.geolocation.getCurrentPosition(
 				(position) => {
@@ -121,11 +108,11 @@ export const UniverseCanvas = () => {
 			);
 		}
 
-		// Listener de mensajes
+		// OPTIMIZACIÓN: Bajamos el límite a 60 para que vaya rápido en móviles
 		const q = query(
 			collection(db, "thoughts"),
 			orderBy("timestamp", "desc"),
-			limit(500)
+			limit(60)
 		);
 
 		const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -133,7 +120,6 @@ export const UniverseCanvas = () => {
 			snapshot.docs.forEach((doc) => {
 				const data = doc.data();
 				if (data.message) {
-					// Verificación extra de fecha por si acaso
 					const createdAt = data.timestamp
 						? data.timestamp.toMillis()
 						: Date.now();
