@@ -5,6 +5,10 @@ import { User, MapPin, MessageCircle, X } from "lucide-react";
 const GOOGLE_TILES_URL = (x, y, z) =>
 	`https://mt1.google.com/vt/lyrs=s&x=${x}&y=${y}&z=${z}`;
 
+// --- AVATAR PREDETERMINADO (Astronauta) ---
+const DEFAULT_AVATAR =
+	"https://cdn-icons-png.flaticon.com/512/3214/3214823.png";
+
 // Mapa de colores
 const CATEGORY_COLORS = {
 	IDEAS: "text-yellow-400 bg-yellow-400/10 border-yellow-400/20",
@@ -62,6 +66,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 			controls.dampingFactor = 0.1;
 			controls.enableDamping = true;
 
+			// Distancias de seguridad
 			controls.minDistance = globe.getGlobeRadius() * 1.01;
 			controls.maxDistance = globe.getGlobeRadius() * 9;
 			controls.zoomSpeed = 0.8;
@@ -78,7 +83,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 		}
 	}, [GlobePackage, ThreePackage, globeReady]);
 
-	// ZOOM INTELIGENTE (Solo lo usaremos si haces clic en un punto 3D lejano, NO en la foto)
+	// ZOOM INTELIGENTE (Solo para clics en el "suelo", no en fotos)
 	const handleSmartZoom = (lat, lng) => {
 		if (!globeEl.current) return;
 		const currentPov = globeEl.current.pointOfView();
@@ -119,7 +124,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 				pointAltitude={0.001}
 				pointRadius={1.5}
 				pointColor={() => "rgba(0,0,0,0)"}
-				// Clic en punto 3D (desde lejos)
+				// Clic en el suelo (Punto 3D) -> Sí hace zoom
 				onPointClick={(d) => {
 					setSelectedThoughtId(d.id);
 					handleSmartZoom(d.location.lat, d.location.lon);
@@ -141,9 +146,11 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 							: "GENERAL";
 						const categoryClass =
 							CATEGORY_COLORS[category] || CATEGORY_COLORS["GENERAL"];
+
+						// --- CAMBIO: FOTO PREDETERMINADA ---
+						// Si photoURL es null, vacío o error, usamos el astronauta
 						const photo =
-							d.photoURL ||
-							"https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png";
+							d.photoURL && d.photoURL.length > 5 ? d.photoURL : DEFAULT_AVATAR;
 
 						wrapper.innerHTML = `
                             <div class="js-popup relative mb-3 w-72 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl transition-all duration-200" style="pointer-events: auto; display: none;">
@@ -171,14 +178,6 @@ export const MapComponent = ({ messages = [], openProfile }) => {
                                                 ${category}
                                             </span>
                                         </div>
-                                        <span class="text-[10px] text-zinc-500 font-mono mt-1 flex items-center gap-1">
-                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-                                            ${
-																							d.cityName ||
-																							d.countryName ||
-																							"Localizado"
-																						}
-                                        </span>
                                     </div>
                                 </div>
 
@@ -194,12 +193,12 @@ export const MapComponent = ({ messages = [], openProfile }) => {
                                 <div class="absolute -bottom-1.5 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-zinc-950 border-r border-b border-zinc-800 rotate-45"></div>
                             </div>
 
-                            <div class="js-icon-container cursor-pointer group relative" style="pointer-events: auto;">
+                            <div class="js-icon-container cursor-pointer group relative transition-all duration-300" style="pointer-events: auto;">
                                 <img src="${photo}" class="js-marker-photo relative w-9 h-9 rounded-full object-cover border-2 border-cyan-500 transition-all duration-200 hover:scale-110 hover:border-white z-10 bg-black shadow-lg" />
                             </div>
                         `;
 
-						// FUNCIÓN DE BLOQUEO DE EVENTOS
+						// BLOQUEO DE EVENTOS
 						const killEvent = (e) => {
 							e.stopPropagation();
 							e.stopImmediatePropagation();
@@ -217,13 +216,13 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 							el.addEventListener("touchstart", killEvent);
 						});
 
-						// --- CLIC EN ICONO (YA NO MUEVE EL MAPA) ---
+						// --- CLIC EN ICONO (SIN MOVIMIENTO DE MAPA) ---
 						iconContainer.addEventListener("click", (e) => {
 							killEvent(e);
 							const data = wrapper.__data;
 							if (data) {
 								setSelectedThoughtId(data.id);
-								// ELIMINADO: handleSmartZoom(...) -> Ya no se mueve
+								// NO LLAMAMOS A handleSmartZoom -> Se queda quieto
 							}
 						});
 
@@ -250,22 +249,39 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 						markersRef.current[d.id] = wrapper;
 					}
 
+					// --- ACTUALIZACIÓN DE ESTADO VISUAL ---
 					const el = markersRef.current[d.id];
 					el.__data = d;
 					const popupEl = el.querySelector(".js-popup");
 					const photoEl = el.querySelector(".js-marker-photo");
 
 					const isSelected = d.id === selectedThoughtId;
+					const isAnySelected = selectedThoughtId !== null;
 
 					if (isSelected) {
+						// SI SOY EL ELEGIDO:
 						el.style.zIndex = "99999";
+						el.style.opacity = "1"; // Totalmente visible
+						el.style.pointerEvents = "auto"; // Clickable
+
 						if (popupEl) popupEl.style.display = "block";
 						if (photoEl) {
 							photoEl.classList.add("scale-125", "border-white");
 							photoEl.classList.remove("border-cyan-500");
 						}
+					} else if (isAnySelected) {
+						// SI HAY OTRO ELEGIDO QUE NO SOY YO: (OCULTARSE)
+						el.style.zIndex = "0";
+						el.style.opacity = "0"; // Invisible
+						el.style.pointerEvents = "none"; // No se puede tocar
+
+						if (popupEl) popupEl.style.display = "none";
 					} else {
+						// ESTADO NORMAL (Nadie seleccionado):
 						el.style.zIndex = "10";
+						el.style.opacity = "1"; // Visible
+						el.style.pointerEvents = "auto"; // Clickable
+
 						if (popupEl) popupEl.style.display = "none";
 						if (photoEl) {
 							photoEl.classList.remove("scale-125", "border-white");
