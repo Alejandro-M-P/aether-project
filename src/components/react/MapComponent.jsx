@@ -62,7 +62,6 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 			controls.dampingFactor = 0.1;
 			controls.enableDamping = true;
 
-			// Distancias de seguridad (Evita temblores)
 			controls.minDistance = globe.getGlobeRadius() * 1.01;
 			controls.maxDistance = globe.getGlobeRadius() * 9;
 			controls.zoomSpeed = 0.8;
@@ -79,7 +78,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 		}
 	}, [GlobePackage, ThreePackage, globeReady]);
 
-	// ZOOM INTELIGENTE
+	// ZOOM INTELIGENTE (Solo lo usaremos si haces clic en un punto 3D lejano, NO en la foto)
 	const handleSmartZoom = (lat, lng) => {
 		if (!globeEl.current) return;
 		const currentPov = globeEl.current.pointOfView();
@@ -120,6 +119,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 				pointAltitude={0.001}
 				pointRadius={1.5}
 				pointColor={() => "rgba(0,0,0,0)"}
+				// Clic en punto 3D (desde lejos)
 				onPointClick={(d) => {
 					setSelectedThoughtId(d.id);
 					handleSmartZoom(d.location.lat, d.location.lon);
@@ -132,7 +132,6 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 				htmlElement={(d) => {
 					if (!markersRef.current[d.id]) {
 						const wrapper = document.createElement("div");
-						// El wrapper es transparente a los eventos para no bloquear, pero sus hijos SÍ capturan eventos.
 						wrapper.className =
 							"flex flex-col items-center justify-end transform -translate-x-1/2 -translate-y-[100%]";
 						wrapper.style.pointerEvents = "none";
@@ -172,6 +171,14 @@ export const MapComponent = ({ messages = [], openProfile }) => {
                                                 ${category}
                                             </span>
                                         </div>
+                                        <span class="text-[10px] text-zinc-500 font-mono mt-1 flex items-center gap-1">
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                                            ${
+																							d.cityName ||
+																							d.countryName ||
+																							"Localizado"
+																						}
+                                        </span>
                                     </div>
                                 </div>
 
@@ -192,54 +199,50 @@ export const MapComponent = ({ messages = [], openProfile }) => {
                             </div>
                         `;
 
-						// --- GESTIÓN DE EVENTOS ROBUSTA ---
+						// FUNCIÓN DE BLOQUEO DE EVENTOS
+						const killEvent = (e) => {
+							e.stopPropagation();
+							e.stopImmediatePropagation();
+						};
+
 						const iconContainer = wrapper.querySelector(".js-icon-container");
 						const popup = wrapper.querySelector(".js-popup");
 						const btn = wrapper.querySelector(".js-profile-btn");
 						const closeBtn = wrapper.querySelector(".js-close-btn");
 
-						// Función auxiliar para matar eventos y que no lleguen al mapa
-						const stopMapDrag = (e) => {
-							e.stopPropagation();
-							// No usamos preventDefault aquí para permitir el click, solo paramos propagación al mapa
-						};
-
-						// 1. Evitar que el mapa se mueva al tocar el popup o el icono
 						[iconContainer, popup, closeBtn].forEach((el) => {
 							if (!el) return;
-							el.addEventListener("mousedown", stopMapDrag);
-							el.addEventListener("touchstart", stopMapDrag);
-							el.addEventListener("pointerdown", stopMapDrag);
+							el.addEventListener("mousedown", killEvent);
+							el.addEventListener("pointerdown", killEvent);
+							el.addEventListener("touchstart", killEvent);
 						});
 
-						// 2. Clic en Icono (Abrir)
+						// --- CLIC EN ICONO (YA NO MUEVE EL MAPA) ---
 						iconContainer.addEventListener("click", (e) => {
-							e.stopPropagation();
+							killEvent(e);
 							const data = wrapper.__data;
 							if (data) {
 								setSelectedThoughtId(data.id);
-								handleSmartZoom(data.location.lat, data.location.lon);
+								// ELIMINADO: handleSmartZoom(...) -> Ya no se mueve
 							}
 						});
 
-						// 3. Clic en Cerrar (Acción)
 						if (closeBtn) {
 							closeBtn.addEventListener("click", (e) => {
-								e.stopPropagation(); // Importante
+								e.preventDefault();
+								e.stopPropagation();
 								setSelectedThoughtId(null);
 							});
-							// Refuerzo para móviles: touchend directo
 							closeBtn.addEventListener("touchend", (e) => {
+								e.preventDefault();
 								e.stopPropagation();
-								e.preventDefault(); // Evita doble disparo
 								setSelectedThoughtId(null);
 							});
 						}
 
-						// 4. Clic en Ver Perfil
 						if (btn) {
 							btn.addEventListener("click", (e) => {
-								e.stopPropagation();
+								killEvent(e);
 								if (wrapper.__data && openProfile) openProfile(wrapper.__data);
 							});
 						}
@@ -247,7 +250,6 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 						markersRef.current[d.id] = wrapper;
 					}
 
-					// Actualizar estado visual (Z-index y clases)
 					const el = markersRef.current[d.id];
 					el.__data = d;
 					const popupEl = el.querySelector(".js-popup");

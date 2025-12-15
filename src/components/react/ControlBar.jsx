@@ -6,71 +6,53 @@ import { db, auth } from "../../firebase.js";
 import { useStore } from "@nanostores/react";
 import { searchQuery } from "../../store.js";
 
-// CONSTANTE para la privacidad: ~0.05 grados equivale a ~5.5 km cerca del ecuador
+// Radio de aleatoriedad (~5-6km).
+// Esto asegura que el punto caiga en la misma zona (Valencia) pero no en tu casa.
 const RANDOM_RADIUS_DEGREE = 0.05;
 
-// AÑADIDO: Offset Aleatorio (5-6km)
 const addRandomOffset = (location) => {
-	// 🚨 Aseguramos que la función modifique la copia
 	const newLocation = { ...location };
-
-	// Generar un ángulo y una distancia aleatorios
 	const angle = Math.random() * 2 * Math.PI;
 	const distance = Math.random() * RANDOM_RADIUS_DEGREE;
-
-	// Fórmula para añadir un offset (aproximado)
 	newLocation.lat += distance * Math.cos(angle);
 	newLocation.lon += distance * Math.sin(angle);
-
 	return newLocation;
 };
 
-// FUNCIÓN AUXILIAR: Obtiene la ubicación precisa (lat/lon)
 const getPreciseLocation = () => {
 	return new Promise((resolve) => {
 		if ("geolocation" in navigator) {
 			navigator.geolocation.getCurrentPosition(
-				(position) => {
+				(position) =>
 					resolve({
 						lat: position.coords.latitude,
 						lon: position.coords.longitude,
-					});
-				},
+					}),
 				(error) => {
-					console.warn("Error de geolocalización precisa:", error);
+					console.warn("Error geo:", error);
 					resolve(null);
 				},
 				{ enableHighAccuracy: false, timeout: 5000, maximumAge: 0 }
 			);
 		} else {
-			resolve(null); // Navegador no soporta geolocalización
+			resolve(null);
 		}
 	});
 };
 
-// FUNCIÓN AUXILIAR: Convierte coordenadas a ciudad/país (Nominatim - OpenStreetMap)
 const reverseGeocode = async (lat, lon) => {
 	try {
 		const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
 		const response = await fetch(url, { headers: { "Accept-Language": "es" } });
 		const data = await response.json();
-
 		const address = data.address;
 		if (address) {
-			// Prioridad: Ciudad, Pueblo, etc.
 			const city =
 				address.city || address.town || address.village || address.municipality;
-			const country = address.country;
-
-			return {
-				cityName: city || null,
-				countryName: country || null,
-			};
+			return { cityName: city || null, countryName: address.country || null };
 		}
-
 		return { cityName: null, countryName: null };
 	} catch (error) {
-		console.error("Error en Reverse Geocoding:", error);
 		return { cityName: null, countryName: null };
 	}
 };
@@ -86,55 +68,46 @@ export default function ControlBar() {
 		e.preventDefault();
 		if (!msg.trim() || isSending) return;
 
-		// CAMBIO: Ya no bloqueamos si no hay usuario.
-		// Obtenemos el usuario actual (puede ser null)
 		const user = auth.currentUser;
-
 		setIsSending(true);
 
-		// 1. OBTENER LA UBICACIÓN PRECISA
 		let preciseLocation = await getPreciseLocation();
-
 		let randomizedLocation = null;
 		let geoNames = { cityName: null, countryName: null };
 
 		if (preciseLocation) {
-			// 2. AÑADIR EL OFFSET ALEATORIO para anonimizar la posición
-			randomizedLocation = addRandomOffset(preciseLocation);
+			// 1. OBTENER NOMBRE REAL DE LA CIUDAD (Antes de aleatorizar)
+			// Así sale "Valencia" aunque el punto aleatorio caiga en un campo de las afueras.
+			geoNames = await reverseGeocode(preciseLocation.lat, preciseLocation.lon);
 
-			// 3. CONVERTIR A NOMBRE DE UBICACIÓN usando la ubicación RANDOMIZADA
-			geoNames = await reverseGeocode(
-				randomizedLocation.lat,
-				randomizedLocation.lon
-			);
+			// 2. ALEATORIZAR COORDENADAS
+			// Movemos el punto unos km para proteger la privacidad
+			randomizedLocation = addRandomOffset(preciseLocation);
 		}
 
 		try {
-			// 4. PREPARAR DATOS
-			// CAMBIO: Si user existe usamos sus datos, si no, usamos "Anónimo"
 			const thoughtData = {
 				message: msg,
 				category: cat || "general",
 				timestamp: serverTimestamp(),
-				uid: user ? user.uid : "anonymous", // ID genérico para invitados
+				uid: user ? user.uid : "anonymous",
 				photoURL: user ? user.photoURL : null,
 				displayName: user ? user.displayName : "Anónimo",
 			};
 
 			if (randomizedLocation) {
-				thoughtData.location = randomizedLocation; // Coordenadas aleatorias (para mapa/proximidad)
-				thoughtData.cityName = geoNames.cityName; // Nombre de la ciudad (randomizada)
-				thoughtData.countryName = geoNames.countryName; // Nombre del país (randomizada)
+				thoughtData.location = randomizedLocation; // Guardamos la coord falsa
+				thoughtData.cityName = geoNames.cityName; // Guardamos la ciudad real
+				thoughtData.countryName = geoNames.countryName;
 			}
 
 			await addDoc(collection(db, "thoughts"), thoughtData);
-
 			setMsg("");
 			setCat("");
 			setOpen(false);
 		} catch (error) {
 			console.error("Error enviando:", error);
-			alert("Error enviando mensaje. Inténtalo de nuevo.");
+			alert("Error enviando. Inténtalo de nuevo.");
 		} finally {
 			setIsSending(false);
 		}
@@ -142,10 +115,8 @@ export default function ControlBar() {
 
 	return (
 		<>
-			{/* FOOTER - Z-INDEX 50 */}
 			<footer className="fixed bottom-0 left-0 right-0 z-50 w-full px-2 md:px-4 py-4 md:py-8 pointer-events-none flex justify-center">
 				<div className="pointer-events-auto flex items-center bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 rounded-full shadow-[0_0_40px_rgba(0,0,0,0.5)] transition-all w-[98%] max-w-lg group">
-					{/* BARRA DE BÚSQUEDA (50%) */}
 					<div className="flex items-center gap-2 md:gap-3 w-1/2 pl-4 pr-2 py-2 border-r border-zinc-700/50">
 						<Search className="h-3 w-3 md:h-4 md:w-4 text-white/40 group-hover:text-cyan-400 transition-colors" />
 						<input
@@ -156,8 +127,6 @@ export default function ControlBar() {
 							placeholder="Buscar..."
 						/>
 					</div>
-
-					{/* BOTÓN TRANSMITIR (50%) */}
 					<button
 						onClick={() => setOpen(true)}
 						className="w-1/2 flex items-center justify-center gap-2 md:gap-3 bg-transparent hover:bg-zinc-800/80 text-emerald-400 hover:text-white text-[10px] md:text-base font-mono uppercase tracking-widest px-4 py-3 md:px-6 md:py-4 rounded-r-full transition-all active:scale-[0.99] hover:shadow-[0_0_15px_rgba(16,185,129,0.3)]"
@@ -168,11 +137,9 @@ export default function ControlBar() {
 				</div>
 			</footer>
 
-			{/* MODAL - Z-INDEX 60 */}
 			{open && (
 				<div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-60 flex items-center justify-center p-4 md:p-6 overflow-y-auto">
 					<div className="w-full max-w-lg relative animate-in fade-in zoom-in duration-300 my-auto">
-						{/* BOTÓN CERRAR: Dentro en móvil, Fuera en Desktop */}
 						<button
 							onClick={() => setOpen(false)}
 							className="absolute top-3 right-4 md:-top-12 md:right-0 text-zinc-500 hover:text-cyan-400 transition-colors flex items-center gap-2 text-xs font-mono uppercase tracking-widest cursor-pointer hover:drop-shadow-[0_0_5px_rgba(6,182,212,1)] z-10"
@@ -187,7 +154,6 @@ export default function ControlBar() {
 									Nueva Transmisión
 								</h2>
 							</div>
-
 							<form onSubmit={send} className="flex flex-col gap-4 md:gap-6">
 								<input
 									value={cat}
