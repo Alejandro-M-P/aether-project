@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
-import { signInAnonymously } from "firebase/auth";
+// Eliminamos la importación de signInAnonymously para que no intente entrar solo
 import {
 	collection,
 	onSnapshot,
@@ -32,7 +32,8 @@ const MapComponent = React.lazy(() =>
 );
 
 // Configuración
-const MESSAGE_LIFETIME = 60000; // 60 segundos
+// CAMBIO 1: Aumentado a 2 horas (2 * 60 * 60 * 1000 = 7200000 ms)
+const MESSAGE_LIFETIME = 7200000;
 const PROXIMITY_DEGREES = 0.05;
 const DEFAULT_AVATAR = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 8v4'/%3E%3Cpath d='M12 16h.01'/%3E%3C/svg%3E`;
 
@@ -81,9 +82,8 @@ export const UniverseCanvas = () => {
 	const openProfileMemo = useMemo(() => openProfile, []);
 
 	useEffect(() => {
-		if (!auth.currentUser) {
-			signInAnonymously(auth).catch(() => {});
-		}
+		// CAMBIO 2: Eliminado el bloque de inicio de sesión anónimo automático.
+		// Ahora el usuario debe pulsar el botón "Conectar" manualmente.
 
 		if (typeof window !== "undefined" && "geolocation" in navigator) {
 			navigator.geolocation.getCurrentPosition(
@@ -176,7 +176,7 @@ export const UniverseCanvas = () => {
 			</div>
 
 			{selectedProfile && (
-				// MODAL PERFIL (Minimalista)
+				// MODAL PERFIL (Minimalista) - Mantenemos la versión móvil ajustada
 				<div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in zoom-in duration-200 overflow-y-auto">
 					<div className="bg-black/95 border border-cyan-500/20 p-5 md:p-6 w-full max-w-md relative shadow-[0_0_80px_rgba(6,182,212,0.2)] backdrop-blur-md ring-1 ring-white/5 my-auto">
 						<button

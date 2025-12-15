@@ -86,11 +86,9 @@ export default function ControlBar() {
 		e.preventDefault();
 		if (!msg.trim() || isSending) return;
 
+		// CAMBIO: Ya no bloqueamos si no hay usuario.
+		// Obtenemos el usuario actual (puede ser null)
 		const user = auth.currentUser;
-		if (!user) {
-			alert("Debes conectarte (botón arriba derecha) para transmitir.");
-			return;
-		}
 
 		setIsSending(true);
 
@@ -113,13 +111,14 @@ export default function ControlBar() {
 
 		try {
 			// 4. PREPARAR DATOS
+			// CAMBIO: Si user existe usamos sus datos, si no, usamos "Anónimo"
 			const thoughtData = {
 				message: msg,
 				category: cat || "general",
 				timestamp: serverTimestamp(),
-				uid: user.uid,
-				photoURL: user.photoURL,
-				displayName: user.displayName,
+				uid: user ? user.uid : "anonymous", // ID genérico para invitados
+				photoURL: user ? user.photoURL : null,
+				displayName: user ? user.displayName : "Anónimo",
 			};
 
 			if (randomizedLocation) {
@@ -135,6 +134,7 @@ export default function ControlBar() {
 			setOpen(false);
 		} catch (error) {
 			console.error("Error enviando:", error);
+			alert("Error enviando mensaje. Inténtalo de nuevo.");
 		} finally {
 			setIsSending(false);
 		}
