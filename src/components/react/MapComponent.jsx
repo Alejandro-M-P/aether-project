@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { User, MapPin, MessageCircle, X } from "lucide-react";
 
-// --- GOOGLE MAPS TILES ---
 const GOOGLE_TILES_URL = (x, y, z) =>
 	`https://mt1.google.com/vt/lyrs=s&x=${x}&y=${y}&z=${z}`;
 
@@ -61,9 +60,9 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 			controls.dampingFactor = 0.1;
 			controls.enableDamping = true;
 
-			// --- ZOOM MÁXIMO ---
-			// 1.002 permite bajar muchísimo (casi a ras de suelo)
-			controls.minDistance = globe.getGlobeRadius() * 1.002;
+			// --- ZOOM EXTREMO ---
+			// Antes: 1.002. Ahora: 1.0001 (Te deja pegar la nariz al suelo)
+			controls.minDistance = globe.getGlobeRadius() * 1.0001;
 			controls.maxDistance = globe.getGlobeRadius() * 9;
 			controls.zoomSpeed = 0.8;
 
@@ -79,13 +78,12 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 		}
 	}, [GlobePackage, ThreePackage, globeReady]);
 
-	// ZOOM INTELIGENTE (Ahora te lleva MUY cerca: 0.08)
 	const handleSmartZoom = (lat, lng) => {
 		if (!globeEl.current) return;
 		const currentPov = globeEl.current.pointOfView();
-		// Si estás alto, baja al 0.08 (vista de calle/barrio)
+		// Baja a 0.05 de altura (muy cerca)
 		const targetAltitude =
-			currentPov.altitude > 0.3 ? 0.08 : currentPov.altitude;
+			currentPov.altitude > 0.3 ? 0.05 : currentPov.altitude;
 		globeEl.current.pointOfView(
 			{ lat: lat, lng: lng, altitude: targetAltitude },
 			1000
@@ -98,6 +96,21 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 			.map((m) => ({ ...m, isSelected: m.id === selectedThoughtId }))
 			.reverse();
 	}, [messages, selectedThoughtId]);
+
+	const getLocationText = (d) => {
+		const city = d.cityName;
+		const country = d.countryName;
+		if (city && city !== "undefined" && city !== "null" && city.trim() !== "")
+			return city;
+		if (
+			country &&
+			country !== "undefined" &&
+			country !== "null" &&
+			country.trim() !== ""
+		)
+			return country;
+		return "Localizado";
+	};
 
 	if (!GlobePackage) return <div className="w-full h-full bg-[#0a0a0a]" />;
 	const Globe = GlobePackage;
@@ -144,6 +157,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 							CATEGORY_COLORS[category] || CATEGORY_COLORS["GENERAL"];
 						const photo =
 							d.photoURL && d.photoURL.length > 5 ? d.photoURL : DEFAULT_AVATAR;
+						const locationText = getLocationText(d);
 
 						wrapper.innerHTML = `
                             <div class="js-popup relative mb-3 w-72 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl transition-all duration-200" style="pointer-events: auto; display: none;">
@@ -167,11 +181,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
                                     </div>
                                     <span class="text-[10px] text-zinc-500 font-mono mt-1 flex items-center gap-1">
                                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-                                        ${
-																					d.cityName ||
-																					d.countryName ||
-																					"Localizado"
-																				}
+                                        ${locationText}
                                     </span>
                                 </div>
                                 <div class="p-5 cursor-default">

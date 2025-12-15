@@ -17,7 +17,7 @@ const addRandomOffset = (location) => {
 	return newLocation;
 };
 
-// 1. Obtener GPS
+// 1. GPS
 const getPreciseLocation = () => {
 	return new Promise((resolve) => {
 		if ("geolocation" in navigator) {
@@ -39,7 +39,7 @@ const getPreciseLocation = () => {
 	});
 };
 
-// 2. Coordenadas -> Nombre (Para cuando dejas el campo vacío)
+// 2. Coordenadas -> Nombre
 const reverseGeocode = async (lat, lon) => {
 	try {
 		const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
@@ -51,7 +51,6 @@ const reverseGeocode = async (lat, lon) => {
 			? data.address.city ||
 					data.address.town ||
 					data.address.municipality ||
-					data.address.county ||
 					""
 			: "";
 	} catch (error) {
@@ -59,7 +58,7 @@ const reverseGeocode = async (lat, lon) => {
 	}
 };
 
-// 3. Nombre -> Coordenadas (Para cuando escribes manual)
+// 3. Nombre -> Coordenadas
 const getCoordsFromCityName = async (cityName) => {
 	try {
 		const url = `https://nominatim.openstreetmap.org/search?format=json&q=${cityName}&limit=1`;
@@ -91,13 +90,12 @@ export default function ControlBar() {
 	useEffect(() => {
 		if (open) {
 			setIsLocating(true);
-			setManualCity(""); // Empezamos limpio
+			setManualCity("");
 			(async () => {
 				const loc = await getPreciseLocation();
 				if (loc) {
 					setAutoLocation(loc);
 					const name = await reverseGeocode(loc.lat, loc.lon);
-					// Solo lo rellenamos visualmente para que sepas dónde estás
 					setManualCity(name || "");
 				}
 				setIsLocating(false);
@@ -116,38 +114,40 @@ export default function ControlBar() {
 			let finalCoords = null;
 			let finalCityName = manualCity.trim();
 
-			// CASO 1: Escribiste algo (ej: "Madrid")
+			// CASO 1: Has escrito una ciudad (ej. "Valencia")
 			if (finalCityName) {
-				// Intentamos buscar coordenadas de ese nombre
 				const coordsFromName = await getCoordsFromCityName(finalCityName);
 				if (coordsFromName) {
 					finalCoords = coordsFromName;
-				} else if (autoLocation) {
-					// Si escribiste algo raro que no existe, usamos tu GPS real como respaldo
-					finalCoords = autoLocation;
+				} else {
+					// SI FALLA AL BUSCAR "VALENCIA", NO USAMOS EL GPS AUTOMÁTICO
+					// PARAMOS Y AVISAMOS AL USUARIO.
+					alert(
+						`❌ No encuentro la ciudad "${finalCityName}" en el mapa.\n\nPrueba a escribirlo de otra forma (ej: "Valencia, España").`
+					);
+					setIsSending(false);
+					return;
 				}
 			}
-			// CASO 2: NO escribiste nada (Campo vacío)
+			// CASO 2: Campo vacío (Usamos GPS automático)
 			else {
 				if (autoLocation) {
 					finalCoords = autoLocation;
-					// IMPORTANTE: Si está vacío, buscamos el nombre real para no guardar "null"
 					const autoName = await reverseGeocode(
 						autoLocation.lat,
 						autoLocation.lon
 					);
 					finalCityName = autoName || "Localizado";
 				} else {
-					// Si no escribiste nada Y no hay GPS -> ERROR
-					alert(
-						"⚠️ No sé dónde ponerte en el mapa.\n\nPor favor, escribe el nombre de tu ciudad."
-					);
+					alert("⚠️ No sé dónde ponerte. Por favor escribe tu ciudad.");
 					setIsSending(false);
 					return;
 				}
 			}
 
-			// Aplicar el desplazamiento aleatorio de 1km
+			if (!finalCityName || finalCityName === "undefined")
+				finalCityName = "Localizado";
+
 			const randomizedLocation = finalCoords
 				? addRandomOffset(finalCoords)
 				: null;
