@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-// Mantenemos tus iconos
 import { User, MapPin, MessageCircle, X } from "lucide-react";
 
 // --- GOOGLE MAPS TILES ---
@@ -61,11 +60,13 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 			controls.autoRotate = false;
 			controls.enableZoom = true;
 			controls.dampingFactor = 0.1;
+			controls.enableDamping = true; // Movimiento más suave
 
-			// --- CORRECCIÓN ZOOM: Te permite acercarte muchísimo más ---
-			// 1.001 significa que puedes bajar hasta el 0.1% de altura
-			controls.minDistance = globe.getGlobeRadius() * 1.001;
+			// --- CORRECCIÓN ESTABILIDAD ---
+			// 1.01 es la distancia más segura. Menos de esto causa el "tembleque".
+			controls.minDistance = globe.getGlobeRadius() * 1.01;
 			controls.maxDistance = globe.getGlobeRadius() * 9;
+			controls.zoomSpeed = 0.8; // Zoom un poco más lento para ser preciso
 
 			// Iluminación
 			globe.scene().children = globe
@@ -80,15 +81,14 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 		}
 	}, [GlobePackage, ThreePackage, globeReady]);
 
-	// LÓGICA DE ZOOM INTELIGENTE AJUSTADA
+	// ZOOM INTELIGENTE (Ajustado para no chocar con el suelo)
 	const handleSmartZoom = (lat, lng) => {
 		if (!globeEl.current) return;
 		const currentPov = globeEl.current.pointOfView();
 
-		// Si estamos lejos (>0.6), nos acercamos mucho más (a 0.15 en vez de 0.35)
-		// para que se vea bien el detalle del mapa satélite.
+		// Objetivo: Altura 0.25 (suficiente para ver ciudades, no choca con el suelo)
 		const targetAltitude =
-			currentPov.altitude > 0.6 ? 0.15 : currentPov.altitude;
+			currentPov.altitude > 0.5 ? 0.25 : currentPov.altitude;
 
 		globeEl.current.pointOfView(
 			{
@@ -143,7 +143,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 						const wrapper = document.createElement("div");
 						wrapper.className =
 							"flex flex-col items-center justify-end transform -translate-x-1/2 -translate-y-[100%]";
-						wrapper.style.pointerEvents = "none";
+						wrapper.style.pointerEvents = "none"; // El contenedor no bloquea
 
 						const category = d.category
 							? String(d.category).toUpperCase()
@@ -155,10 +155,10 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 							"https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png";
 
 						wrapper.innerHTML = `
-                            <div class="js-popup absolute bottom-[115%] mb-2 w-72 bg-zinc-950 border border-zinc-800 rounded-lg shadow-lg origin-bottom transition-all duration-200 overflow-hidden" style="pointer-events: auto; display: none;">
+                            <div class="js-popup absolute bottom-[115%] mb-2 w-72 bg-zinc-950 border border-zinc-800 rounded-lg shadow-2xl origin-bottom transition-all duration-200 overflow-hidden cursor-default" style="pointer-events: auto; display: none;">
                                 <div class="px-4 py-3 flex items-start gap-3 border-b border-zinc-800 bg-zinc-900/50 relative">
                                     <img src="${photo}" class="w-8 h-8 rounded-full border border-cyan-500/50 object-cover bg-black" />
-                                    <div class="flex-1 min-w-0 mr-4">
+                                    <div class="flex-1 min-w-0 mr-6">
                                         <div class="flex items-center justify-between">
                                             <span class="text-xs font-mono uppercase tracking-widest text-cyan-400 truncate max-w-[120px]">
                                                 ${
@@ -175,12 +175,12 @@ export const MapComponent = ({ messages = [], openProfile }) => {
                                         </div>
                                     </div>
 
-                                    <button class="js-close-btn absolute top-2 right-2 text-zinc-500 hover:text-white p-1 rounded hover:bg-zinc-800/50 transition-colors">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                                    </button>
+                                    <div class="js-close-btn absolute top-0 right-0 p-3 text-zinc-500 hover:text-white cursor-pointer hover:bg-white/5 transition-colors">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                    </div>
                                 </div>
 
-                                <div class="p-4">
+                                <div class="p-4 cursor-text select-text">
                                     <p class="text-sm text-zinc-200 font-light leading-relaxed italic">"${
 																			d.text
 																		}"</p>
@@ -192,7 +192,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
                             </div>
 
                             <div class="js-icon-container cursor-pointer group relative" style="pointer-events: auto;">
-                                <img src="${photo}" class="js-marker-photo relative w-9 h-9 rounded-full object-cover border-2 border-cyan-500 transition-all duration-200 hover:scale-110 hover:border-white z-10 bg-black" />
+                                <img src="${photo}" class="js-marker-photo relative w-9 h-9 rounded-full object-cover border-2 border-cyan-500 transition-all duration-200 hover:scale-110 hover:border-white z-10 bg-black shadow-lg" />
                             </div>
                         `;
 
@@ -202,11 +202,17 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 						const btn = wrapper.querySelector(".js-profile-btn");
 						const closeBtn = wrapper.querySelector(".js-close-btn");
 
-						// Evitar que el clic en el popup cierre el popup
+						// Evitar arrastrar mapa desde el popup
 						iconContainer.addEventListener("mousedown", stopProp);
-						if (popup) popup.addEventListener("mousedown", stopProp);
+						iconContainer.addEventListener("touchstart", stopProp);
+						if (popup) {
+							popup.addEventListener("mousedown", stopProp);
+							popup.addEventListener("touchstart", stopProp);
+							// Prevenir conflictos de cursor
+							popup.addEventListener("mousemove", stopProp);
+						}
 
-						// Click en icono abre/centra
+						// CLIC EN ICONO
 						iconContainer.addEventListener("click", (e) => {
 							e.stopPropagation();
 							const data = wrapper.__data;
@@ -216,15 +222,21 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 							}
 						});
 
-						// Click en botón X cierra
+						// CLIC EN CERRAR (Crítico: stopPropagation)
 						if (closeBtn) {
 							closeBtn.addEventListener("click", (e) => {
-								e.stopPropagation(); // Evita que pase al mapa
+								e.preventDefault();
+								e.stopPropagation();
+								setSelectedThoughtId(null);
+							});
+							// Soporte táctil mejorado
+							closeBtn.addEventListener("touchend", (e) => {
+								e.preventDefault();
+								e.stopPropagation();
 								setSelectedThoughtId(null);
 							});
 						}
 
-						// Click en perfil
 						if (btn) {
 							btn.addEventListener("click", (e) => {
 								e.stopPropagation();
@@ -235,6 +247,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 						markersRef.current[d.id] = wrapper;
 					}
 
+					// Actualizar estado visual
 					const el = markersRef.current[d.id];
 					el.__data = d;
 					const popupEl = el.querySelector(".js-popup");
