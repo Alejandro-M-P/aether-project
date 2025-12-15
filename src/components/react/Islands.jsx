@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
 	collection,
 	onSnapshot,
@@ -30,7 +30,7 @@ const MapComponent = React.lazy(() =>
 		})
 );
 
-// 2 Horas de duración
+// Duración para el borrado automático (2 Horas)
 const MESSAGE_LIFETIME = 7200000;
 const PROXIMITY_DEGREES = 0.05;
 
@@ -42,14 +42,13 @@ const distanceBetween = (loc1, loc2) => {
 };
 
 export const UniverseCanvas = () => {
-	// Usamos 'rawDocs' para guardar lo que viene de Firebase sin procesar
-	const rawDocsRef = useRef([]);
+	// CAMBIO CRÍTICO: Usamos useState directo para garantizar que React actualice
+	// la pantalla en cuanto llegue un mensaje nuevo desde el otro dispositivo.
+	const [rawMessages, setRawMessages] = useState([]);
 	const [selectedProfile, setSelectedProfile] = useState(null);
 	const [profilePosts, setProfilePosts] = useState([]);
 	const [loadingProfile, setLoadingProfile] = useState(false);
 	const [viewerLocation, setViewerLocation] = useState(null);
-	// Este estado sirve para forzar la actualización visual cuando llegan datos
-	const [dataVersion, setDataVersion] = useState(0);
 	const $searchQuery = useStore(searchQuery);
 
 	// --- LIMPIEZA AUTOMÁTICA ---
@@ -62,6 +61,7 @@ export const UniverseCanvas = () => {
 			);
 			const snapshot = await getDocs(q);
 			if (!snapshot.empty) {
+				// Borramos silenciosamente
 				snapshot.forEach((doc) =>
 					deleteDoc(doc.ref).catch((e) => console.error(e))
 				);
@@ -95,7 +95,7 @@ export const UniverseCanvas = () => {
 
 	const openProfileMemo = useMemo(() => openProfile, []);
 
-	// EFECTO 1: SOLO GEOLOCALIZACIÓN
+	// 1. GEOLOCALIZACIÓN (Solo una vez al inicio)
 	useEffect(() => {
 		cleanupOldThoughts();
 		if (typeof window !== "undefined" && "geolocation" in navigator) {
@@ -107,14 +107,15 @@ export const UniverseCanvas = () => {
 					});
 				},
 				(error) => console.warn("Geo error:", error),
-				{ enableHighAccuracy: false, timeout: 10000 }
+				{ enableHighAccuracy: false }
 			);
 		}
-	}, []); // Solo se ejecuta al montar, no depende de nada más
+	}, []);
 
-	// EFECTO 2: SOLO CONEXIÓN A FIREBASE
+	// 2. CONEXIÓN FIREBASE (REAL-TIME)
 	useEffect(() => {
-		// Obtenemos los últimos 60 mensajes
+		// Pedimos los últimos 60 mensajes. Si escribes en el móvil,
+		// Firebase avisa aquí instantáneamente.
 		const q = query(
 			collection(db, "thoughts"),
 			orderBy("timestamp", "desc"),
@@ -122,40 +123,32 @@ export const UniverseCanvas = () => {
 		);
 
 		const unsubscribe = onSnapshot(q, (snapshot) => {
-			const rawData = [];
+			const receivedData = [];
 			snapshot.docs.forEach((doc) => {
 				const data = doc.data();
 				if (data.message && data.location) {
-					const createdAt = data.timestamp
-						? data.timestamp.toMillis()
-						: Date.now();
-					const isExpired = Date.now() - createdAt > MESSAGE_LIFETIME;
-
-					if (!isExpired) {
-						// Guardamos los datos crudos, la distancia se calcula después
-						rawData.push({
-							id: doc.id,
-							...data,
-							category: data.category
-								? String(data.category).toUpperCase()
-								: "GENERAL",
-							createdAt: createdAt,
-						});
-					}
+					// Quitamos la comprobación de fecha aquí para evitar bugs de zona horaria entre PC y Móvil.
+					// Si Firebase nos lo da (limit 60), lo mostramos.
+					receivedData.push({
+						id: doc.id,
+						...data,
+						category: data.category
+							? String(data.category).toUpperCase()
+							: "GENERAL",
+					});
 				}
 			});
-			// Guardamos en referencia y avisamos a React para que pinte
-			rawDocsRef.current = rawData;
-			setDataVersion((v) => v + 1);
+			// Al actualizar este estado, TODOS los dispositivos refrescan el mapa
+			setRawMessages(receivedData);
 		});
 		return () => unsubscribe();
-	}, []); // IMPORTANTE: Array vacío. La conexión NO se reinicia si te mueves.
+	}, []);
 
-	// PROCESAMIENTO: Aquí unimos Datos + Búsqueda + GPS
+	// 3. PROCESAMIENTO (Búsqueda + Distancia)
 	const processedMessages = useMemo(() => {
 		const filterText = $searchQuery.toLowerCase().trim();
 
-		return rawDocsRef.current
+		return rawMessages
 			.filter((p) => {
 				if (!filterText) return true;
 				return (
@@ -164,15 +157,15 @@ export const UniverseCanvas = () => {
 				);
 			})
 			.map((p) => {
-				// Calculamos la distancia aquí, en tiempo real
+				// Calcular distancia para pintar el puntito verde si estás cerca
 				let isNearby = false;
 				if (viewerLocation && p.location) {
 					const dist = distanceBetween(viewerLocation, p.location);
 					if (dist < PROXIMITY_DEGREES) isNearby = true;
 				}
-				return { ...p, isNearby, text: p.message }; // Aseguramos que 'text' existe para el mapa
+				return { ...p, isNearby, text: p.message };
 			});
-	}, [dataVersion, $searchQuery, viewerLocation]); // Se recalcula si cambia algo de esto
+	}, [rawMessages, $searchQuery, viewerLocation]);
 
 	return (
 		<>

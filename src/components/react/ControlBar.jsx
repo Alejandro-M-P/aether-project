@@ -1,13 +1,13 @@
-import React, { useState } from "react";
-import { Search, X } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Search, X, MapPin } from "lucide-react";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 import { db, auth } from "../../firebase.js";
 import { useStore } from "@nanostores/react";
 import { searchQuery } from "../../store.js";
 
-// Radio de privacidad (~5km)
-const RANDOM_RADIUS_DEGREE = 0.05;
+// Radio de privacidad (1km aprox)
+const RANDOM_RADIUS_DEGREE = 0.01;
 
 const addRandomOffset = (location) => {
 	const newLocation = { ...location };
@@ -29,10 +29,9 @@ const getPreciseLocation = () => {
 					}),
 				(error) => {
 					console.warn("Error GPS:", error);
-					// Si falla el GPS, devuelve null sin romper nada
 					resolve(null);
 				},
-				{ enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+				{ enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
 			);
 		} else {
 			resolve(null);
@@ -40,40 +39,26 @@ const getPreciseLocation = () => {
 	});
 };
 
-// MEJORA: Lógica robusta para encontrar el nombre de la ciudad
 const reverseGeocode = async (lat, lon) => {
 	try {
 		const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
 		const response = await fetch(url, {
-			headers: {
-				"Accept-Language": "es",
-				"User-Agent": "AetherApp/1.0", // IMPORTANTE para que no bloqueen
-			},
+			headers: { "Accept-Language": "es", "User-Agent": "AetherApp/1.0" },
 		});
 		const data = await response.json();
 		const address = data.address;
-
 		if (address) {
-			// Buscamos el nombre en orden de preferencia
 			const city =
 				address.city ||
 				address.town ||
 				address.village ||
 				address.municipality ||
-				address.city_district ||
-				address.county ||
-				address.state_district;
-
+				address.county;
 			const country = address.country;
-
-			return {
-				cityName: city || null,
-				countryName: country || null,
-			};
+			return { cityName: city || null, countryName: country || null };
 		}
 		return { cityName: null, countryName: null };
 	} catch (error) {
-		console.error("Error API Mapas:", error);
 		return { cityName: null, countryName: null };
 	}
 };
@@ -83,7 +68,32 @@ export default function ControlBar() {
 	const [open, setOpen] = useState(false);
 	const [msg, setMsg] = useState("");
 	const [cat, setCat] = useState("");
+
+	// NUEVO: Estado para controlar la ubicación manual
+	const [manualCity, setManualCity] = useState("");
+	const [isLocating, setIsLocating] = useState(false);
+	const [coords, setCoords] = useState(null);
 	const [isSending, setIsSending] = useState(false);
+
+	// Al abrir el modal, buscamos la ubicación automáticamente
+	useEffect(() => {
+		if (open) {
+			setIsLocating(true);
+			setManualCity("Localizando...");
+			(async () => {
+				const loc = await getPreciseLocation();
+				if (loc) {
+					setCoords(loc);
+					const names = await reverseGeocode(loc.lat, loc.lon);
+					// Si encuentra nombre, lo pone. Si no, lo deja vacío para que tú escribas.
+					setManualCity(names.cityName || "");
+				} else {
+					setManualCity(""); // No se pudo localizar, escribe tú
+				}
+				setIsLocating(false);
+			})();
+		}
+	}, [open]);
 
 	const send = async (e) => {
 		e.preventDefault();
@@ -93,21 +103,9 @@ export default function ControlBar() {
 		setIsSending(true);
 
 		try {
-			// 1. Intentamos obtener GPS
-			let preciseLocation = await getPreciseLocation();
-			let randomizedLocation = null;
-			let geoNames = { cityName: null, countryName: null };
-
-			if (preciseLocation) {
-				// 2. Primero sacamos el nombre REAL (Valencia)
-				geoNames = await reverseGeocode(
-					preciseLocation.lat,
-					preciseLocation.lon
-				);
-
-				// 3. Luego falseamos la ubicación para el mapa (Privacidad)
-				randomizedLocation = addRandomOffset(preciseLocation);
-			}
+			// Usamos las coordenadas que ya buscamos al abrir (o null si falló)
+			// Si hay coordenadas, las aleatorizamos un poco
+			let finalLocation = coords ? addRandomOffset(coords) : null;
 
 			const thoughtData = {
 				message: msg,
@@ -116,21 +114,20 @@ export default function ControlBar() {
 				uid: user ? user.uid : "anonymous",
 				photoURL: user ? user.photoURL : null,
 				displayName: user ? user.displayName : "Anónimo",
+				// AQUÍ ESTÁ LA CLAVE: Usamos lo que TÚ hayas escrito en el input
+				cityName: manualCity || null,
+				countryName: null,
+				location: finalLocation,
 			};
-
-			if (randomizedLocation) {
-				thoughtData.location = randomizedLocation;
-				thoughtData.cityName = geoNames.cityName;
-				thoughtData.countryName = geoNames.countryName;
-			}
 
 			await addDoc(collection(db, "thoughts"), thoughtData);
 			setMsg("");
 			setCat("");
+			setManualCity("");
 			setOpen(false);
 		} catch (error) {
 			console.error("Error enviando:", error);
-			alert("Error al enviar. Comprueba tu conexión.");
+			alert("Error enviando.");
 		} finally {
 			setIsSending(false);
 		}
@@ -177,13 +174,31 @@ export default function ControlBar() {
 									Nueva Transmisión
 								</h2>
 							</div>
+
 							<form onSubmit={send} className="flex flex-col gap-4 md:gap-6">
-								<input
-									value={cat}
-									onChange={(e) => setCat(e.target.value)}
-									placeholder="CANAL / CATEGORÍA"
-									className="bg-transparent border-b border-white/10 py-2 text-white/60 text-[10px] md:text-xs font-mono tracking-0.1em text-center uppercase focus:outline-none focus:border-emerald-500/50 transition-colors"
-								/>
+								<div className="flex gap-4">
+									<input
+										value={cat}
+										onChange={(e) => setCat(e.target.value)}
+										placeholder="CANAL"
+										className="w-1/2 bg-transparent border-b border-white/10 py-2 text-white/60 text-[10px] md:text-xs font-mono tracking-widest uppercase focus:outline-none focus:border-emerald-500/50 text-center"
+									/>
+
+									<div className="w-1/2 relative">
+										<MapPin className="absolute left-0 top-2 w-3 h-3 text-white/30" />
+										<input
+											value={manualCity}
+											onChange={(e) => setManualCity(e.target.value)}
+											placeholder={isLocating ? "..." : "CIUDAD"}
+											className={`w-full bg-transparent border-b border-white/10 py-2 pl-5 text-[10px] md:text-xs font-mono tracking-widest uppercase focus:outline-none focus:border-emerald-500/50 text-center ${
+												isLocating
+													? "animate-pulse text-emerald-500"
+													: "text-emerald-400"
+											}`}
+										/>
+									</div>
+								</div>
+
 								<textarea
 									value={msg}
 									onChange={(e) => setMsg(e.target.value)}
