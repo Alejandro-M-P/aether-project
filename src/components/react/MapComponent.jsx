@@ -62,7 +62,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 			controls.dampingFactor = 0.1;
 			controls.enableDamping = true;
 
-			// Distancias de seguridad
+			// Distancias de seguridad (Evita temblores)
 			controls.minDistance = globe.getGlobeRadius() * 1.01;
 			controls.maxDistance = globe.getGlobeRadius() * 9;
 			controls.zoomSpeed = 0.8;
@@ -132,8 +132,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 				htmlElement={(d) => {
 					if (!markersRef.current[d.id]) {
 						const wrapper = document.createElement("div");
-						// Ajuste importante: pointer-events-none en el wrapper para que no bloquee,
-						// pero sus hijos tendrán pointer-events-auto
+						// El wrapper es transparente a los eventos para no bloquear, pero sus hijos SÍ capturan eventos.
 						wrapper.className =
 							"flex flex-col items-center justify-end transform -translate-x-1/2 -translate-y-[100%]";
 						wrapper.style.pointerEvents = "none";
@@ -150,8 +149,10 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 						wrapper.innerHTML = `
                             <div class="js-popup relative mb-3 w-72 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl transition-all duration-200" style="pointer-events: auto; display: none;">
 
-                                <div class="js-close-btn absolute -top-2 -right-2 w-8 h-8 bg-black border border-zinc-700 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 shadow-xl cursor-pointer z-50">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                <div class="js-close-btn absolute -top-3 -right-3 w-10 h-10 flex items-center justify-center cursor-pointer z-[100]">
+                                    <div class="w-7 h-7 bg-black border border-zinc-600 rounded-full flex items-center justify-center text-zinc-300 hover:text-white hover:bg-zinc-800 hover:scale-110 transition-all shadow-lg">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                    </div>
                                 </div>
 
                                 <div class="px-4 py-3 flex items-start gap-3 border-b border-zinc-800 bg-zinc-900/50 rounded-t-xl">
@@ -191,31 +192,29 @@ export const MapComponent = ({ messages = [], openProfile }) => {
                             </div>
                         `;
 
-						// FUNCIÓN DE BLOQUEO DE EVENTOS (Para que no pase al mapa)
-						const killEvent = (e) => {
-							e.stopPropagation();
-							e.stopImmediatePropagation();
-							// e.preventDefault() a veces da problemas con el click, mejor solo stopProp
-						};
-
+						// --- GESTIÓN DE EVENTOS ROBUSTA ---
 						const iconContainer = wrapper.querySelector(".js-icon-container");
 						const popup = wrapper.querySelector(".js-popup");
 						const btn = wrapper.querySelector(".js-profile-btn");
 						const closeBtn = wrapper.querySelector(".js-close-btn");
 
-						// 1. Bloquear arrastre del mapa sobre el icono y popup
-						iconContainer.addEventListener("mousedown", killEvent);
-						iconContainer.addEventListener("pointerdown", killEvent); // Importante para punteros modernos
+						// Función auxiliar para matar eventos y que no lleguen al mapa
+						const stopMapDrag = (e) => {
+							e.stopPropagation();
+							// No usamos preventDefault aquí para permitir el click, solo paramos propagación al mapa
+						};
 
-						if (popup) {
-							popup.addEventListener("mousedown", killEvent);
-							popup.addEventListener("pointerdown", killEvent);
-							popup.addEventListener("click", killEvent); // Evita clic "fantasma" en el mapa
-						}
+						// 1. Evitar que el mapa se mueva al tocar el popup o el icono
+						[iconContainer, popup, closeBtn].forEach((el) => {
+							if (!el) return;
+							el.addEventListener("mousedown", stopMapDrag);
+							el.addEventListener("touchstart", stopMapDrag);
+							el.addEventListener("pointerdown", stopMapDrag);
+						});
 
-						// 2. Lógica del Icono
+						// 2. Clic en Icono (Abrir)
 						iconContainer.addEventListener("click", (e) => {
-							killEvent(e);
+							e.stopPropagation();
 							const data = wrapper.__data;
 							if (data) {
 								setSelectedThoughtId(data.id);
@@ -223,25 +222,24 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 							}
 						});
 
-						// 3. Lógica del Botón Cerrar (AISLADA)
+						// 3. Clic en Cerrar (Acción)
 						if (closeBtn) {
-							// Bloquear todos los eventos de bajada para que no rote el mapa
-							closeBtn.addEventListener("mousedown", killEvent);
-							closeBtn.addEventListener("pointerdown", killEvent);
-							closeBtn.addEventListener("touchstart", killEvent);
-
-							// Acción de cerrar
 							closeBtn.addEventListener("click", (e) => {
-								e.preventDefault();
+								e.stopPropagation(); // Importante
+								setSelectedThoughtId(null);
+							});
+							// Refuerzo para móviles: touchend directo
+							closeBtn.addEventListener("touchend", (e) => {
 								e.stopPropagation();
+								e.preventDefault(); // Evita doble disparo
 								setSelectedThoughtId(null);
 							});
 						}
 
-						// 4. Perfil
+						// 4. Clic en Ver Perfil
 						if (btn) {
 							btn.addEventListener("click", (e) => {
-								killEvent(e);
+								e.stopPropagation();
 								if (wrapper.__data && openProfile) openProfile(wrapper.__data);
 							});
 						}
@@ -249,6 +247,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 						markersRef.current[d.id] = wrapper;
 					}
 
+					// Actualizar estado visual (Z-index y clases)
 					const el = markersRef.current[d.id];
 					el.__data = d;
 					const popupEl = el.querySelector(".js-popup");
@@ -257,7 +256,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 					const isSelected = d.id === selectedThoughtId;
 
 					if (isSelected) {
-						el.style.zIndex = "99999"; // Z-index altísimo
+						el.style.zIndex = "99999";
 						if (popupEl) popupEl.style.display = "block";
 						if (photoEl) {
 							photoEl.classList.add("scale-125", "border-white");
