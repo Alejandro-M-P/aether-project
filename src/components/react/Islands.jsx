@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
-// Eliminamos la importación de signInAnonymously para que no intente entrar solo
 import {
 	collection,
 	onSnapshot,
@@ -8,14 +7,14 @@ import {
 	limit,
 	where,
 	getDocs,
+	deleteDoc,
 } from "firebase/firestore";
-
 import { auth, db } from "../../firebase.js";
 import { useStore } from "@nanostores/react";
 import { searchQuery } from "../../store.js";
 import { X, MapPin } from "lucide-react";
 
-// Carga dinámica del mapa (ahora es el Globo 3D)
+// Carga dinámica del MapComponent
 const MapComponent = React.lazy(() =>
 	import("./MapComponent.jsx")
 		.then((mod) => ({ default: mod.MapComponent }))
@@ -24,20 +23,17 @@ const MapComponent = React.lazy(() =>
 			return {
 				default: () => (
 					<div className="flex items-center justify-center h-full text-red-500">
-						Error de Sistema: Mapa no disponible.
+						Error cargando mapa.
 					</div>
 				),
 			};
 		})
 );
 
-// Configuración
-// CAMBIO 1: Aumentado a 2 horas (2 * 60 * 60 * 1000 = 7200000 ms)
+// 2 Horas de duración (7200000 ms)
 const MESSAGE_LIFETIME = 7200000;
 const PROXIMITY_DEGREES = 0.05;
-const DEFAULT_AVATAR = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 8v4'/%3E%3Cpath d='M12 16h.01'/%3E%3C/svg%3E`;
 
-// Distancia simple
 const distanceBetween = (loc1, loc2) => {
 	if (!loc1 || !loc2) return Infinity;
 	const dLat = loc1.lat - loc2.lat;
@@ -51,16 +47,43 @@ export const UniverseCanvas = () => {
 	const [profilePosts, setProfilePosts] = useState([]);
 	const [loadingProfile, setLoadingProfile] = useState(false);
 	const [viewerLocation, setViewerLocation] = useState(null);
-
-	// Estado para forzar re-render
 	const [particlesLoadedVersion, setParticlesLoadedVersion] = useState(0);
 	const $searchQuery = useStore(searchQuery);
+
+	// --- FUNCIÓN DE LIMPIEZA AUTOMÁTICA (El "Basurero") ---
+	const cleanupOldThoughts = async () => {
+		try {
+			// Calcula la fecha de hace 2 horas
+			const cutoffDate = new Date(Date.now() - MESSAGE_LIFETIME);
+
+			// Busca mensajes más viejos que esa fecha
+			const q = query(
+				collection(db, "thoughts"),
+				where("timestamp", "<=", cutoffDate)
+			);
+
+			const snapshot = await getDocs(q);
+			if (!snapshot.empty) {
+				console.log(`🧹 Limpiando ${snapshot.size} mensajes caducados...`);
+				// Borra cada documento encontrado
+				snapshot.forEach((doc) => {
+					deleteDoc(doc.ref).catch((err) =>
+						console.error("Error borrando msg:", err)
+					);
+				});
+			}
+		} catch (error) {
+			console.warn(
+				"Error en limpieza automática (puede requerir índices en Firebase):",
+				error
+			);
+		}
+	};
 
 	const openProfile = async (user) => {
 		setSelectedProfile(user);
 		setLoadingProfile(true);
 		setProfilePosts([]);
-
 		try {
 			const q = query(
 				collection(db, "thoughts"),
@@ -73,7 +96,7 @@ export const UniverseCanvas = () => {
 			querySnapshot.forEach((doc) => posts.push({ id: doc.id, ...doc.data() }));
 			setProfilePosts(posts);
 		} catch (error) {
-			console.error("Error cargando perfil", error);
+			console.error("Error perfil", error);
 		} finally {
 			setLoadingProfile(false);
 		}
@@ -82,9 +105,10 @@ export const UniverseCanvas = () => {
 	const openProfileMemo = useMemo(() => openProfile, []);
 
 	useEffect(() => {
-		// CAMBIO 2: Eliminado el bloque de inicio de sesión anónimo automático.
-		// Ahora el usuario debe pulsar el botón "Conectar" manualmente.
+		// Ejecutar limpieza al iniciar
+		cleanupOldThoughts();
 
+		// Geolocalización
 		if (typeof window !== "undefined" && "geolocation" in navigator) {
 			navigator.geolocation.getCurrentPosition(
 				(position) => {
@@ -97,7 +121,7 @@ export const UniverseCanvas = () => {
 			);
 		}
 
-		// FIREBASE LISTENER
+		// Listener de mensajes
 		const q = query(
 			collection(db, "thoughts"),
 			orderBy("timestamp", "desc"),
@@ -109,38 +133,37 @@ export const UniverseCanvas = () => {
 			snapshot.docs.forEach((doc) => {
 				const data = doc.data();
 				if (data.message) {
+					// Verificación extra de fecha por si acaso
 					const createdAt = data.timestamp
 						? data.timestamp.toMillis()
 						: Date.now();
+					const isExpired = Date.now() - createdAt > MESSAGE_LIFETIME;
 
-					// Lógica de proximidad
-					let isNearby = false;
-					if (viewerLocation && data.location) {
-						const dist = distanceBetween(viewerLocation, data.location);
-						if (dist < PROXIMITY_DEGREES) isNearby = true;
+					if (!isExpired) {
+						let isNearby = false;
+						if (viewerLocation && data.location) {
+							const dist = distanceBetween(viewerLocation, data.location);
+							if (dist < PROXIMITY_DEGREES) isNearby = true;
+						}
+						valid.push({
+							id: doc.id,
+							text: data.message,
+							category: data.category
+								? String(data.category).toUpperCase()
+								: "GENERAL",
+							uid: data.uid,
+							displayName: data.displayName,
+							photoURL: data.photoURL,
+							createdAt: createdAt,
+							location: data.location || null,
+							cityName: data.cityName || null,
+							countryName: data.countryName || null,
+							isNearby: isNearby,
+						});
 					}
-
-					valid.push({
-						id: doc.id,
-						text: data.message,
-						category: data.category
-							? String(data.category).toUpperCase()
-							: "GENERAL",
-						uid: data.uid,
-						displayName: data.displayName,
-						photoURL: data.photoURL,
-						createdAt: createdAt,
-						location: data.location || null,
-						cityName: data.cityName || null,
-						countryName: data.countryName || null,
-						isNearby: isNearby,
-					});
 				}
 			});
-
-			particlesRef.current = valid.filter(
-				(p) => Date.now() - p.createdAt <= MESSAGE_LIFETIME
-			);
+			particlesRef.current = valid;
 			setParticlesLoadedVersion((v) => v + 1);
 		});
 		return () => unsubscribe();
@@ -159,12 +182,11 @@ export const UniverseCanvas = () => {
 
 	return (
 		<>
-			{/* FONDO NEGRO Y MAPA 3D */}
 			<div className="fixed inset-0 w-full h-full bg-black -z-10">
 				<React.Suspense
 					fallback={
-						<div className="flex items-center justify-center w-full h-full bg-black text-zinc-600 font-mono text-xs uppercase tracking-widest animate-pulse">
-							Inicializando Secuencia Aether...
+						<div className="text-zinc-600 font-mono text-xs p-4">
+							Cargando Aether...
 						</div>
 					}
 				>
@@ -176,64 +198,53 @@ export const UniverseCanvas = () => {
 			</div>
 
 			{selectedProfile && (
-				// MODAL PERFIL (Minimalista) - Mantenemos la versión móvil ajustada
-				<div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in zoom-in duration-200 overflow-y-auto">
-					<div className="bg-black/95 border border-cyan-500/20 p-5 md:p-6 w-full max-w-md relative shadow-[0_0_80px_rgba(6,182,212,0.2)] backdrop-blur-md ring-1 ring-white/5 my-auto">
+				<div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
+					<div className="bg-zinc-950/95 border border-cyan-500/20 p-6 w-full max-w-md relative shadow-2xl rounded-xl">
 						<button
 							onClick={() => setSelectedProfile(null)}
-							className="absolute top-4 right-4 text-zinc-500 hover:text-cyan-400 transition-colors hover:drop-shadow-[0_0_5px_rgba(6,182,212,1)]"
+							className="absolute top-4 right-4 text-zinc-500 hover:text-white"
 						>
 							<X size={20} />
 						</button>
-
-						<div className="flex flex-col items-center mb-6 md:mb-8">
-							<div className="relative">
-								<img
-									src={selectedProfile.photoURL || "/favicon.svg"}
-									alt="Profile"
-									className="w-16 h-16 md:w-20 md:h-20 rounded-full border-2 border-cyan-400 object-cover bg-black"
-								/>
-							</div>
-							<h2 className="text-white font-mono text-lg md:text-xl mt-4 tracking-widest uppercase drop-shadow-[0_0_5px_rgba(255,255,255,0.2)]">
+						<div className="flex flex-col items-center mb-6">
+							<img
+								src={selectedProfile.photoURL || "/favicon.svg"}
+								className="w-20 h-20 rounded-full border-2 border-cyan-400 bg-black object-cover"
+							/>
+							<h2 className="text-white font-mono text-xl mt-4 uppercase tracking-widest">
 								{selectedProfile.displayName || "Viajero"}
 							</h2>
-							<p className="text-cyan-400 text-[10px] font-mono uppercase tracking-widest mt-1">
-								Historial de Transmisiones
-							</p>
 						</div>
-
-						<div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
+						<div className="space-y-3 max-h-[50vh] overflow-y-auto custom-scrollbar">
 							{loadingProfile ? (
-								<div className="text-center py-8">
-									<span className="text-cyan-500 font-mono text-xs animate-pulse">
-										Descifrando datos...
-									</span>
-								</div>
-							) : profilePosts.length > 0 ? (
-								profilePosts.map((post) => (
+								<p className="text-center text-cyan-500 text-xs animate-pulse">
+									Cargando...
+								</p>
+							) : (
+								profilePosts.map((p) => (
 									<div
-										key={post.id}
-										className="bg-zinc-950 p-4 border border-zinc-900 hover:border-emerald-700/50 transition-all duration-300"
+										key={p.id}
+										className="bg-zinc-900 p-3 rounded border border-zinc-800"
 									>
-										<p className="text-zinc-400 text-sm font-light leading-relaxed italic border-l border-zinc-700 pl-3">
-											"{post.message}"
+										<p className="text-zinc-300 text-sm italic">
+											"{p.message}"
 										</p>
-										<div className="flex justify-end mt-3 items-center gap-2">
-											{post.countryName && (
-												<span className="text-[10px] text-zinc-600 font-mono uppercase flex items-center">
-													<MapPin size={10} className="mr-1 text-zinc-700" />
-													{post.cityName || post.countryName}
+										<div className="flex justify-end mt-2 gap-2">
+											{p.cityName && (
+												<span className="text-[10px] text-zinc-500 flex items-center">
+													<MapPin size={10} className="mr-1" /> {p.cityName}
 												</span>
 											)}
-											<span className="text-[10px] text-emerald-400 font-mono uppercase border border-emerald-900/30 px-2 py-0.5 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
-												{post.category}
+											<span className="text-[10px] text-emerald-400 border border-emerald-900 px-1">
+												{p.category}
 											</span>
 										</div>
 									</div>
 								))
-							) : (
-								<p className="text-center text-zinc-700 font-mono text-xs py-4">
-									Silencio absoluto en este canal.
+							)}
+							{!loadingProfile && profilePosts.length === 0 && (
+								<p className="text-center text-zinc-600 text-xs">
+									Sin transmisiones recientes.
 								</p>
 							)}
 						</div>
