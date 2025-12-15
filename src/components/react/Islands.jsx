@@ -11,7 +11,6 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../../firebase.js";
 import { useStore } from "@nanostores/react";
-// Importamos la nueva variable availableCategories
 import { searchQuery, availableCategories } from "../../store.js";
 import { X, MapPin } from "lucide-react";
 
@@ -24,7 +23,8 @@ const MapComponent = React.lazy(() =>
 		})
 );
 
-const MESSAGE_LIFETIME = 7200000;
+// Tiempo de vida de mensajes (ajustable)
+const MESSAGE_LIFETIME = 7200000 * 12;
 
 export const UniverseCanvas = () => {
 	const [rawMessages, setRawMessages] = useState([]);
@@ -80,7 +80,7 @@ export const UniverseCanvas = () => {
 		cleanupOldThoughts();
 	}, []);
 
-	// REAL-TIME LISTENER
+	// --- REAL-TIME LISTENER ---
 	useEffect(() => {
 		const q = query(
 			collection(db, "thoughts"),
@@ -90,29 +90,32 @@ export const UniverseCanvas = () => {
 
 		const unsubscribe = onSnapshot(q, (snapshot) => {
 			const receivedData = [];
-			const catsSet = new Set(); // Usamos un Set para evitar duplicados
+			// Usamos un Set nuevo para recalcular categorías disponibles basadas SOLO en lo que hay
+			const catsSet = new Set();
 
 			snapshot.docs.forEach((doc) => {
 				const data = doc.data();
 				if (data.message && data.location) {
-					// Normalizamos la categoría (mayúsculas, sin espacios extra)
-					const cat = data.category
-						? String(data.category).toUpperCase().trim()
+					// Limpieza de categoría
+					const catRaw = data.category
+						? String(data.category).trim()
 						: "GENERAL";
+					const cat = catRaw.length > 0 ? catRaw.toUpperCase() : "GENERAL";
+
 					receivedData.push({
 						id: doc.id,
 						...data,
 						category: cat,
 					});
-					// Añadimos la categoría a la lista
-					if (cat) catsSet.add(cat);
+					// Añadimos la categoría encontrada
+					catsSet.add(cat);
 				}
 			});
 
 			setRawMessages(receivedData);
 			setDataVersion((v) => v + 1);
 
-			// ACTUALIZAMOS LA STORE GLOBAL: Convertimos el Set a Array y ordenamos
+			// Actualizamos la store global con las categorías que REALMENTE existen ahora
 			availableCategories.set(Array.from(catsSet).sort());
 		});
 		return () => unsubscribe();
@@ -122,7 +125,6 @@ export const UniverseCanvas = () => {
 		const filterText = $searchQuery.toLowerCase().trim();
 		return rawMessages.filter((p) => {
 			if (!filterText) return true;
-			// Filtro exacto por categoría para el desplegable
 			return p.category.toLowerCase().includes(filterText);
 		});
 	}, [rawMessages, $searchQuery]);
@@ -133,7 +135,7 @@ export const UniverseCanvas = () => {
 				<React.Suspense
 					fallback={
 						<div className="text-zinc-600 font-mono text-xs p-4">
-							Cargando...
+							Cargando universo...
 						</div>
 					}
 				>

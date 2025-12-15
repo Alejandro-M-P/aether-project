@@ -22,7 +22,7 @@ const addRandomOffset = (location) => {
 	return newLocation;
 };
 
-// --- LÓGICA DE NOMBRES MEJORADA (PRIORIDAD ISLAS) ---
+// --- MEJORA PARA DETECTAR ISLAS Y REGIONES (Canarias, etc.) ---
 const reverseGeocode = async (lat, lon) => {
 	try {
 		const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
@@ -33,7 +33,7 @@ const reverseGeocode = async (lat, lon) => {
 		const addr = data.address;
 
 		if (addr) {
-			// 1. El lugar concreto
+			// 1. Lugar específico
 			const specific =
 				addr.city ||
 				addr.town ||
@@ -41,20 +41,19 @@ const reverseGeocode = async (lat, lon) => {
 				addr.hamlet ||
 				addr.municipality;
 
-			// 2. El contexto (Isla mata a todo lo demás)
-			// A veces Nominatim devuelve la isla en 'island', 'archipelago' o incluso 'region'
-			let context = addr.island || addr.archipelago;
+			// 2. Contexto Amplio: Isla > Archipiélago > Estado/Región > País
+			// Añadido 'state' y 'region' para capturar Canarias u otras comunidades.
+			let context =
+				addr.island || addr.archipelago || addr.state || addr.region;
 
-			// Si NO es isla, usamos el país (ej: España)
 			if (!context) {
 				context = addr.country;
 			}
 
-			// 3. Formato Final
+			// 3. Construcción del nombre
 			if (specific && context) {
-				return `${specific} (${context})`; // Ej: "Palma (Mallorca)" o "Valencia (España)"
+				return `${specific} (${context})`;
 			}
-			// Fallbacks
 			if (specific) return specific;
 			if (context) return context;
 
@@ -68,7 +67,6 @@ const reverseGeocode = async (lat, lon) => {
 
 const getCoordsFromCityName = async (cityName) => {
 	try {
-		// Limpiamos paréntesis para que la búsqueda no se líe
 		const cleanName = cityName.replace(/[()]/g, "");
 		const url = `https://nominatim.openstreetmap.org/search?format=json&q=${cleanName}&limit=1`;
 		const response = await fetch(url, {
@@ -178,9 +176,12 @@ export default function ControlBar() {
 
 			const randomizedLocation = addRandomOffset(finalCoords);
 
+			// Aseguramos que la categoría también vaya limpia
+			const cleanCat = cat ? cat.trim().toUpperCase() : "GENERAL";
+
 			const thoughtData = {
 				message: msg,
-				category: cat || "general",
+				category: cleanCat,
 				timestamp: serverTimestamp(),
 				uid: user ? user.uid : "anonymous",
 				photoURL: user ? user.photoURL : null,

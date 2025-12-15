@@ -9,9 +9,9 @@ const DEFAULT_AVATAR =
 	"https://cdn-icons-png.flaticon.com/512/3214/3214823.png";
 
 const CATEGORY_COLORS = {
-	IDEAS: "text-yellow-400 bg-yellow-400/10 border-yellow-400/20",
-	NOTICIAS: "text-purple-400 bg-purple-400/10 border-purple-400/20",
-	GENERAL: "text-cyan-400 bg-cyan-400/10 border-cyan-400/20",
+	IDEAS: "#fbbf24", // yellow-400
+	NOTICIAS: "#c084fc", // purple-400
+	GENERAL: "#22d3ee", // cyan-400
 };
 
 export const MapComponent = ({ messages = [], openProfile }) => {
@@ -19,10 +19,10 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 	const [GlobePackage, setGlobePackage] = useState(null);
 	const [ThreePackage, setThreePackage] = useState(null);
 
-	// Leemos el estado: ¿Estamos eligiendo sitio?
 	const $isPicking = useStore(isPickingLocation);
 
 	const [selectedThoughtId, setSelectedThoughtId] = useState(null);
+	const [readThoughtIds, setReadThoughtIds] = useState(new Set());
 	const [dimensions, setDimensions] = useState({ width: 800, height: 800 });
 	const [globeReady, setGlobeReady] = useState(false);
 	const markersRef = useRef({});
@@ -63,7 +63,6 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 			controls.enableZoom = true;
 			controls.dampingFactor = 0.1;
 			controls.enableDamping = true;
-
 			controls.minDistance = globe.getGlobeRadius() * 1.001;
 			controls.maxDistance = globe.getGlobeRadius() * 9;
 			controls.zoomSpeed = 0.8;
@@ -85,29 +84,51 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 		const currentPov = globeEl.current.pointOfView();
 		const targetAltitude =
 			currentPov.altitude > 0.25 ? 0.08 : currentPov.altitude;
-		globeEl.current.pointOfView(
-			{ lat: lat, lng: lng, altitude: targetAltitude },
-			1000
-		);
+		globeEl.current.pointOfView({ lat, lng, altitude: targetAltitude }, 1000);
 	};
 
-	// --- LÓGICA DE DATOS: SI ELIGES UBICACIÓN, BORRAMOS LOS MARCADORES ---
+	// --- LÓGICA DE DATOS (FOCUS MODE) ---
 	const mapData = useMemo(() => {
-		// TRUCO MAESTRO: Si estás eligiendo sitio, devolvemos array vacío [].
-		// Así el mapa se limpia y no hay nada que estorbe al clic.
+		// MODO 1: LOCALIZADOR -> Limpio
 		if ($isPicking) return [];
+
+		// MODO 2: NORMAL -> Ver fotos
+		if (selectedThoughtId) {
+			const selected = messages.find((m) => m.id === selectedThoughtId);
+			if (selected) {
+				return [
+					{
+						...selected,
+						isSelected: true,
+						isRead: readThoughtIds.has(selected.id),
+					},
+				];
+			}
+		}
 
 		return messages
 			.filter((m) => m.location?.lat && m.location?.lon)
-			.map((m) => ({ ...m, isSelected: m.id === selectedThoughtId }))
+			.map((m) => ({
+				...m,
+				isSelected: false,
+				isRead: readThoughtIds.has(m.id),
+			}))
 			.reverse();
-	}, [messages, selectedThoughtId, $isPicking]); // Se recalcula cuando $isPicking cambia
+	}, [messages, selectedThoughtId, $isPicking, readThoughtIds]);
 
 	const getLocationText = (d) => {
 		const city = d.cityName;
-		const country = d.countryName;
 		if (city && city !== "undefined" && city !== "null" && city.trim() !== "")
 			return city;
+		const region = d.regionName || d.principalSubdivision || d.locality;
+		if (
+			region &&
+			region !== "undefined" &&
+			region !== "null" &&
+			region.trim() !== ""
+		)
+			return region;
+		const country = d.countryName;
 		if (
 			country &&
 			country !== "undefined" &&
@@ -138,28 +159,13 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 				atmosphereAltitude={0.1}
 				htmlTransitionDuration={0}
 				animateIn={false}
-				// Si estamos eligiendo, mapData es [], así que no se dibuja nada
-				pointsData={mapData}
-				pointLat={(d) => d.location.lat}
-				pointLng={(d) => d.location.lon}
-				pointAltitude={0.001}
-				pointRadius={0.25}
-				pointColor={() => "rgba(0,0,0,0)"}
-				// Clic en punto invisible (Solo funciona en modo normal)
-				onPointClick={(d) => {
-					if ($isPicking) return;
-					setSelectedThoughtId(d.id);
-					handleSmartZoom(d.location.lat, d.location.lon);
-				}}
-				// LÓGICA DIVIDIDA DE CLIC EN EL MUNDO
+				pointsData={[]}
 				onGlobeClick={({ lat, lng }) => {
 					if ($isPicking) {
-						// MODO SELECCIÓN: Guardamos coordenada y salimos
 						pickedCoordinates.set({ lat, lng });
 						isPickingLocation.set(false);
 						handleSmartZoom(lat, lng);
 					} else {
-						// MODO NORMAL: Deseleccionar mensaje al hacer clic en el mar/tierra vacía
 						setSelectedThoughtId(null);
 					}
 				}}
@@ -168,37 +174,53 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 				htmlLng={(d) => d.location.lon}
 				htmlAltitude={0}
 				htmlElement={(d) => {
-					// Si estamos eligiendo, mapData es [], así que este código NI SE EJECUTA.
-					// Máxima limpieza y rendimiento.
-
+					// 1. CREACIÓN DEL DOM
 					if (!markersRef.current[d.id]) {
 						const wrapper = document.createElement("div");
-						wrapper.className = "absolute flex items-center justify-center";
+						wrapper.style.position = "absolute";
 						wrapper.style.transform = "translate(-50%, -50%)";
-						wrapper.style.pointerEvents = "none"; // El wrapper no bloquea, sus hijos sí
+						wrapper.style.pointerEvents = "none";
+						wrapper.style.display = "flex";
+						wrapper.style.flexDirection = "column";
+						wrapper.style.alignItems = "center";
+						wrapper.style.justifyContent = "center";
+						wrapper.style.zIndex = "10";
 
 						const category = d.category
 							? String(d.category).toUpperCase()
 							: "GENERAL";
-						const categoryClass =
+						const color =
 							CATEGORY_COLORS[category] || CATEGORY_COLORS["GENERAL"];
 						const photo =
 							d.photoURL && d.photoURL.length > 5 ? d.photoURL : DEFAULT_AVATAR;
-
 						const locationText = getLocationText(d);
 						const finalMessage = d.text || d.message || "";
 
 						wrapper.innerHTML = `
-                            <div class="relative flex flex-col items-center">
-                                <div class="js-popup absolute bottom-[100%] mb-4 w-72 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl transition-all duration-200 z-[99999]" style="pointer-events: auto; display: none;">
-                                    <div class="js-close-btn absolute -top-3 -right-3 w-10 h-10 flex items-center justify-center cursor-pointer z-[100]">
-                                        <div class="w-7 h-7 bg-black border border-zinc-600 rounded-full flex items-center justify-center text-zinc-300 hover:text-white hover:bg-zinc-800 hover:scale-110 transition-all shadow-lg">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                        </div>
-                                    </div>
-                                    <div class="px-5 py-3 border-b border-zinc-800 bg-zinc-900/50 rounded-t-xl">
-                                        <div class="flex items-center justify-between">
-                                            <span class="text-xs font-mono uppercase tracking-widest text-cyan-400 truncate max-w-[140px]">
+                            <div style="position: relative; display: flex; align-items: center; justify-content: center;">
+                                <div class="js-popup" style="
+                                    display: none;
+                                    position: absolute;
+                                    bottom: 50px;
+                                    width: 280px;
+                                    background-color: #09090b;
+                                    border: 1px solid #27272a;
+                                    border-radius: 12px;
+                                    pointer-events: auto;
+                                    cursor: default;
+                                    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.8);
+                                    z-index: 1000;
+                                ">
+                                    <div class="js-close-btn" style="
+                                        position: absolute; top: -10px; right: -10px; width: 30px; height: 30px;
+                                        background: black; border: 1px solid #52525b; border-radius: 50%;
+                                        display: flex; align-items: center; justify-content: center; color: white; cursor: pointer;
+                                        z-index: 1001;
+                                    ">✕</div>
+
+                                    <div style="padding: 12px 20px; border-bottom: 1px solid #27272a; background: rgba(24, 24, 27, 0.5); border-top-left-radius: 12px; border-top-right-radius: 12px;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                                            <span style="font-size: 10px; color: #22d3ee; font-family: monospace; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px;">
                                                 ${
 																									d.displayName
 																										? d.displayName.split(
@@ -207,94 +229,124 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 																										: "ANÓNIMO"
 																								}
                                             </span>
-                                            <span class="px-2 py-0.5 rounded-full text-[9px] uppercase font-bold tracking-wider ${categoryClass}">
+                                            <span style="font-size: 9px; padding: 2px 6px; border-radius: 999px; background: ${color}20; color: ${color}; font-weight: bold;">
                                                 ${category}
                                             </span>
                                         </div>
-                                        <span class="text-[10px] text-zinc-500 font-mono mt-1 flex items-center gap-1">
-                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-                                            ${locationText}
-                                        </span>
+                                        <div style="font-size: 10px; color: #71717a; margin-top: 4px; font-family: monospace;">
+                                            📍 ${locationText}
+                                        </div>
                                     </div>
-                                    <div class="p-5 cursor-default">
-                                        <p class="text-sm text-zinc-200 font-light leading-relaxed italic">"${finalMessage}"</p>
+
+                                    <div style="padding: 20px;">
+                                        <p style="font-size: 14px; color: #e4e4e7; font-style: italic; margin: 0; line-height: 1.5;">"${finalMessage}"</p>
                                     </div>
-                                    <button class="js-profile-btn w-full py-3 bg-black hover:bg-zinc-900 border-t border-zinc-800 text-[10px] text-cyan-500 uppercase tracking-widest transition-colors cursor-pointer flex items-center justify-center gap-2 rounded-b-xl">
+
+                                    <button class="js-profile-btn" style="
+                                        width: 100%; padding: 12px; background: black; color: #22d3ee;
+                                        font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+                                        border: none; border-top: 1px solid #27272a; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;
+                                        cursor: pointer;
+                                    ">
                                         VER PERFIL COMPLETO
                                     </button>
-                                    <div class="absolute -bottom-1.5 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-zinc-950 border-r border-b border-zinc-800 rotate-45"></div>
                                 </div>
 
-                                <div class="js-icon-container cursor-pointer group relative z-10" style="pointer-events: auto;">
-                                    <img src="${photo}" class="js-marker-photo w-10 h-10 rounded-full object-cover border-2 border-cyan-500 transition-all duration-200 hover:border-white bg-black shadow-lg" />
+                                <div class="js-icon-container" style="
+                                    position: relative;
+                                    width: 40px; height: 40px;
+                                    z-index: 10;
+                                    pointer-events: auto;
+                                    cursor: pointer;
+                                ">
+                                    <img src="${photo}" class="js-photo" style="
+                                        width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
+                                        border: 2px solid #22d3ee; background: black; display: block;
+                                        box-shadow: 0 0 10px rgba(0,0,0,0.5); transition: transform 0.2s, border-color 0.2s;
+                                    " />
                                 </div>
                             </div>
                         `;
 
-						// EVENTOS - AHORA SOLO EXISTEN EN MODO NORMAL
-						const killEvent = (e) => {
+						// === BLOQUEO SELECTIVO ===
+						// Solo bloqueamos "mousedown" y similares para evitar arrastrar el mapa.
+						// PERO NO BLOQUEAMOS "click".
+						const preventMapDrag = (e) => {
 							e.stopPropagation();
-							e.stopImmediatePropagation();
-						};
-						const iconContainer = wrapper.querySelector(".js-icon-container");
-						const closeBtn = wrapper.querySelector(".js-close-btn");
-						const btn = wrapper.querySelector(".js-profile-btn");
-
-						// Clic en foto -> Abre popup y hace zoom
-						iconContainer.onclick = (e) => {
-							killEvent(e);
-							const data = wrapper.__data;
-							if (data) {
-								setSelectedThoughtId(data.id);
-								handleSmartZoom(data.location.lat, data.location.lon);
-							}
+							// NO llamamos a stopImmediatePropagation aquí para dejar que el click fluya si es necesario,
+							// pero lo crítico es stopPropagation para que no suba al Globe.
 						};
 
-						// Evitar arrastre del mapa sobre estos elementos
-						[iconContainer, closeBtn, btn].forEach((el) => {
+						const interactables = [
+							wrapper.querySelector(".js-popup"),
+							wrapper.querySelector(".js-icon-container"),
+							wrapper.querySelector(".js-close-btn"),
+							wrapper.querySelector(".js-profile-btn"),
+						];
+
+						interactables.forEach((el) => {
 							if (!el) return;
-							el.addEventListener("mousedown", killEvent);
-							el.addEventListener("touchstart", killEvent);
+							// Bloqueamos el INICIO de la interacción para que el mapa no la capture como "drag"
+							el.addEventListener("pointerdown", preventMapDrag);
+							el.addEventListener("mousedown", preventMapDrag);
+							el.addEventListener("touchstart", preventMapDrag);
 						});
 
-						if (closeBtn) {
-							closeBtn.onclick = (e) => {
-								killEvent(e);
-								setSelectedThoughtId(null);
-							};
-						}
-
-						if (btn) {
-							btn.onclick = (e) => {
-								killEvent(e);
-								if (wrapper.__data && openProfile) openProfile(wrapper.__data);
-							};
-						}
 						markersRef.current[d.id] = wrapper;
 					}
 
+					// 2. ACTUALIZACIÓN (Render loop)
 					const el = markersRef.current[d.id];
-					el.__data = d;
+
+					const iconContainer = el.querySelector(".js-icon-container");
+					if (iconContainer) {
+						iconContainer.onclick = (e) => {
+							// Detenemos propagación AQUÍ para que no cuente como click en el mapa
+							e.stopPropagation();
+							setReadThoughtIds((prev) => new Set(prev).add(d.id));
+							setSelectedThoughtId(d.id);
+							handleSmartZoom(d.location.lat, d.location.lon);
+						};
+					}
+
+					const closeBtn = el.querySelector(".js-close-btn");
+					if (closeBtn) {
+						closeBtn.onclick = (e) => {
+							e.stopPropagation();
+							setSelectedThoughtId(null);
+						};
+					}
+
+					const btn = el.querySelector(".js-profile-btn");
+					if (btn) {
+						btn.onclick = (e) => {
+							e.stopPropagation();
+							if (openProfile) openProfile(d);
+						};
+					}
+
+					// VISIBILIDAD
 					const popupEl = el.querySelector(".js-popup");
-					const photoEl = el.querySelector(".js-marker-photo");
+					const photoImg = el.querySelector(".js-photo");
 					const isSelected = d.id === selectedThoughtId;
 
 					if (isSelected) {
-						el.style.zIndex = "99999";
+						el.style.zIndex = "99999999";
 						if (popupEl) popupEl.style.display = "block";
-						if (photoEl) {
-							photoEl.classList.add("border-white");
-							photoEl.classList.remove("border-cyan-500");
+						if (photoImg) {
+							photoImg.style.borderColor = "white";
+							photoImg.style.transform = "scale(1.2)";
 						}
-					} else if (selectedThoughtId !== null) {
-						el.style.zIndex = "0";
-						if (popupEl) popupEl.style.display = "none";
 					} else {
 						el.style.zIndex = "10";
 						if (popupEl) popupEl.style.display = "none";
-						if (photoEl) {
-							photoEl.classList.remove("border-white");
-							photoEl.classList.add("border-cyan-500");
+						if (photoImg) {
+							photoImg.style.transform = "scale(1)";
+							if (d.isRead) {
+								photoImg.style.borderColor = "#52525b"; // Leído
+							} else {
+								photoImg.style.borderColor = "#22d3ee"; // Nuevo
+							}
 						}
 					}
 					return el;
