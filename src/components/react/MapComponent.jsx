@@ -5,11 +5,9 @@ import { User, MapPin, MessageCircle, X } from "lucide-react";
 const GOOGLE_TILES_URL = (x, y, z) =>
 	`https://mt1.google.com/vt/lyrs=s&x=${x}&y=${y}&z=${z}`;
 
-// --- AVATAR PREDETERMINADO ---
 const DEFAULT_AVATAR =
 	"https://cdn-icons-png.flaticon.com/512/3214/3214823.png";
 
-// Mapa de colores
 const CATEGORY_COLORS = {
 	IDEAS: "text-yellow-400 bg-yellow-400/10 border-yellow-400/20",
 	NOTICIAS: "text-purple-400 bg-purple-400/10 border-purple-400/20",
@@ -26,7 +24,6 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 	const [globeReady, setGlobeReady] = useState(false);
 	const markersRef = useRef({});
 
-	// 1. CARGA LIBRERÍAS
 	useEffect(() => {
 		if (typeof window !== "undefined") {
 			Promise.all([import("react-globe.gl"), import("three")]).then(
@@ -39,7 +36,6 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 		}
 	}, []);
 
-	// 2. RESIZE
 	useEffect(() => {
 		if (typeof window === "undefined") return;
 		const handleResize = () =>
@@ -49,7 +45,6 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 		return () => window.removeEventListener("resize", handleResize);
 	}, []);
 
-	// 3. CONFIGURACIÓN TÉCNICA
 	useEffect(() => {
 		if (GlobePackage && ThreePackage && globeEl.current && !globeReady) {
 			setGlobeReady(true);
@@ -66,7 +61,9 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 			controls.dampingFactor = 0.1;
 			controls.enableDamping = true;
 
-			controls.minDistance = globe.getGlobeRadius() * 1.01;
+			// --- ZOOM MÁXIMO ---
+			// 1.002 permite bajar muchísimo (casi a ras de suelo)
+			controls.minDistance = globe.getGlobeRadius() * 1.002;
 			controls.maxDistance = globe.getGlobeRadius() * 9;
 			controls.zoomSpeed = 0.8;
 
@@ -82,12 +79,13 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 		}
 	}, [GlobePackage, ThreePackage, globeReady]);
 
-	// ZOOM INTELIGENTE (Solo suelo)
+	// ZOOM INTELIGENTE (Ahora te lleva MUY cerca: 0.08)
 	const handleSmartZoom = (lat, lng) => {
 		if (!globeEl.current) return;
 		const currentPov = globeEl.current.pointOfView();
+		// Si estás alto, baja al 0.08 (vista de calle/barrio)
 		const targetAltitude =
-			currentPov.altitude > 0.5 ? 0.25 : currentPov.altitude;
+			currentPov.altitude > 0.3 ? 0.08 : currentPov.altitude;
 		globeEl.current.pointOfView(
 			{ lat: lat, lng: lng, altitude: targetAltitude },
 			1000
@@ -123,7 +121,6 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 				pointAltitude={0.001}
 				pointRadius={1.5}
 				pointColor={() => "rgba(0,0,0,0)"}
-				// CLIC EN SUELO -> Mueve mapa
 				onPointClick={(d) => {
 					setSelectedThoughtId(d.id);
 					handleSmartZoom(d.location.lat, d.location.lon);
@@ -145,20 +142,16 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 							: "GENERAL";
 						const categoryClass =
 							CATEGORY_COLORS[category] || CATEGORY_COLORS["GENERAL"];
-
-						// FOTO PREDETERMINADA SI FALLA
 						const photo =
 							d.photoURL && d.photoURL.length > 5 ? d.photoURL : DEFAULT_AVATAR;
 
 						wrapper.innerHTML = `
                             <div class="js-popup relative mb-3 w-72 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl transition-all duration-200" style="pointer-events: auto; display: none;">
-
                                 <div class="js-close-btn absolute -top-3 -right-3 w-10 h-10 flex items-center justify-center cursor-pointer z-[100]">
                                     <div class="w-7 h-7 bg-black border border-zinc-600 rounded-full flex items-center justify-center text-zinc-300 hover:text-white hover:bg-zinc-800 hover:scale-110 transition-all shadow-lg">
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                                     </div>
                                 </div>
-
                                 <div class="px-5 py-3 border-b border-zinc-800 bg-zinc-900/50 rounded-t-xl">
                                     <div class="flex items-center justify-between">
                                         <span class="text-xs font-mono uppercase tracking-widest text-cyan-400 truncate max-w-[140px]">
@@ -181,7 +174,6 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 																				}
                                     </span>
                                 </div>
-
                                 <div class="p-5 cursor-default">
                                     <p class="text-sm text-zinc-200 font-light leading-relaxed italic">"${
 																			d.text
@@ -190,21 +182,17 @@ export const MapComponent = ({ messages = [], openProfile }) => {
                                 <button class="js-profile-btn w-full py-3 bg-black hover:bg-zinc-900 border-t border-zinc-800 text-[10px] text-cyan-500 uppercase tracking-widest transition-colors cursor-pointer flex items-center justify-center gap-2 rounded-b-xl">
                                     VER PERFIL COMPLETO
                                 </button>
-
                                 <div class="absolute -bottom-1.5 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-zinc-950 border-r border-b border-zinc-800 rotate-45"></div>
                             </div>
-
                             <div class="js-icon-container cursor-pointer group relative transition-all duration-300" style="pointer-events: auto;">
                                 <img src="${photo}" class="js-marker-photo relative w-10 h-10 rounded-full object-cover border-2 border-cyan-500 transition-all duration-200 hover:border-white z-10 bg-black shadow-lg" />
                             </div>
                         `;
 
-						// BLOQUEO EVENTOS
 						const killEvent = (e) => {
 							e.stopPropagation();
 							e.stopImmediatePropagation();
 						};
-
 						const iconContainer = wrapper.querySelector(".js-icon-container");
 						const popup = wrapper.querySelector(".js-popup");
 						const btn = wrapper.querySelector(".js-profile-btn");
@@ -217,7 +205,6 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 							el.addEventListener("touchstart", killEvent);
 						});
 
-						// CLIC EN FOTO -> SOLO SELECCIONA (NO MUEVE)
 						iconContainer.addEventListener("click", (e) => {
 							killEvent(e);
 							const data = wrapper.__data;
@@ -243,50 +230,40 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 								if (wrapper.__data && openProfile) openProfile(wrapper.__data);
 							});
 						}
-
 						markersRef.current[d.id] = wrapper;
 					}
 
-					// --- ACTUALIZACIÓN VISUAL ---
 					const el = markersRef.current[d.id];
 					el.__data = d;
 					const popupEl = el.querySelector(".js-popup");
 					const photoEl = el.querySelector(".js-marker-photo");
-
 					const isSelected = d.id === selectedThoughtId;
 					const isAnySelected = selectedThoughtId !== null;
 
 					if (isSelected) {
-						// SELECCIONADO: Solo mostramos popup y borde blanco. NO ESCALAMOS.
 						el.style.zIndex = "99999";
 						el.style.opacity = "1";
 						el.style.pointerEvents = "auto";
-
 						if (popupEl) popupEl.style.display = "block";
 						if (photoEl) {
 							photoEl.classList.add("border-white");
 							photoEl.classList.remove("border-cyan-500");
-							// ELIMINADO: 'scale-125' para que no salte
 						}
 					} else if (isAnySelected) {
-						// OTRO SELECCIONADO: Desaparecemos
 						el.style.zIndex = "0";
 						el.style.opacity = "0";
 						el.style.pointerEvents = "none";
 						if (popupEl) popupEl.style.display = "none";
 					} else {
-						// NORMAL
 						el.style.zIndex = "10";
 						el.style.opacity = "1";
 						el.style.pointerEvents = "auto";
-
 						if (popupEl) popupEl.style.display = "none";
 						if (photoEl) {
 							photoEl.classList.remove("border-white");
 							photoEl.classList.add("border-cyan-500");
 						}
 					}
-
 					return el;
 				}}
 			/>
