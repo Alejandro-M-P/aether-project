@@ -14,44 +14,26 @@ import { useStore } from "@nanostores/react";
 import { searchQuery } from "../../store.js";
 import { X, MapPin } from "lucide-react";
 
-// Carga dinámica del MapComponent
 const MapComponent = React.lazy(() =>
 	import("./MapComponent.jsx")
 		.then((mod) => ({ default: mod.MapComponent }))
 		.catch((err) => {
-			console.error("Fallo al cargar MapComponent:", err);
-			return {
-				default: () => (
-					<div className="flex items-center justify-center h-full text-red-500">
-						Error cargando mapa.
-					</div>
-				),
-			};
+			console.error("Fallo mapa:", err);
+			return { default: () => <div className="text-red-500">Error.</div> };
 		})
 );
 
-// Duración para el borrado automático (2 Horas)
 const MESSAGE_LIFETIME = 7200000;
-const PROXIMITY_DEGREES = 0.05;
-
-const distanceBetween = (loc1, loc2) => {
-	if (!loc1 || !loc2) return Infinity;
-	const dLat = loc1.lat - loc2.lat;
-	const dLon = loc1.lon - loc2.lon;
-	return Math.sqrt(dLat * dLat + dLon * dLon);
-};
 
 export const UniverseCanvas = () => {
-	// CAMBIO CRÍTICO: Usamos useState directo para garantizar que React actualice
-	// la pantalla en cuanto llegue un mensaje nuevo desde el otro dispositivo.
 	const [rawMessages, setRawMessages] = useState([]);
+	const [dataVersion, setDataVersion] = useState(0); // ESTO FUERZA LA ACTUALIZACIÓN
+
 	const [selectedProfile, setSelectedProfile] = useState(null);
 	const [profilePosts, setProfilePosts] = useState([]);
 	const [loadingProfile, setLoadingProfile] = useState(false);
-	const [viewerLocation, setViewerLocation] = useState(null);
 	const $searchQuery = useStore(searchQuery);
 
-	// --- LIMPIEZA AUTOMÁTICA ---
 	const cleanupOldThoughts = async () => {
 		try {
 			const cutoffDate = new Date(Date.now() - MESSAGE_LIFETIME);
@@ -60,12 +42,10 @@ export const UniverseCanvas = () => {
 				where("timestamp", "<=", cutoffDate)
 			);
 			const snapshot = await getDocs(q);
-			if (!snapshot.empty) {
-				// Borramos silenciosamente
+			if (!snapshot.empty)
 				snapshot.forEach((doc) =>
 					deleteDoc(doc.ref).catch((e) => console.error(e))
 				);
-			}
 		} catch (error) {
 			console.warn("Limpieza:", error);
 		}
@@ -95,27 +75,12 @@ export const UniverseCanvas = () => {
 
 	const openProfileMemo = useMemo(() => openProfile, []);
 
-	// 1. GEOLOCALIZACIÓN (Solo una vez al inicio)
 	useEffect(() => {
 		cleanupOldThoughts();
-		if (typeof window !== "undefined" && "geolocation" in navigator) {
-			navigator.geolocation.getCurrentPosition(
-				(position) => {
-					setViewerLocation({
-						lat: position.coords.latitude,
-						lon: position.coords.longitude,
-					});
-				},
-				(error) => console.warn("Geo error:", error),
-				{ enableHighAccuracy: false }
-			);
-		}
 	}, []);
 
-	// 2. CONEXIÓN FIREBASE (REAL-TIME)
+	// REAL-TIME LISTENER
 	useEffect(() => {
-		// Pedimos los últimos 60 mensajes. Si escribes en el móvil,
-		// Firebase avisa aquí instantáneamente.
 		const q = query(
 			collection(db, "thoughts"),
 			orderBy("timestamp", "desc"),
@@ -127,8 +92,6 @@ export const UniverseCanvas = () => {
 			snapshot.docs.forEach((doc) => {
 				const data = doc.data();
 				if (data.message && data.location) {
-					// Quitamos la comprobación de fecha aquí para evitar bugs de zona horaria entre PC y Móvil.
-					// Si Firebase nos lo da (limit 60), lo mostramos.
 					receivedData.push({
 						id: doc.id,
 						...data,
@@ -138,34 +101,24 @@ export const UniverseCanvas = () => {
 					});
 				}
 			});
-			// Al actualizar este estado, TODOS los dispositivos refrescan el mapa
+			// Guardamos los datos
 			setRawMessages(receivedData);
+			// IMPORTANTE: Cambiamos el versionado para que MapComponent sepa que hay cambios
+			setDataVersion((v) => v + 1);
 		});
 		return () => unsubscribe();
 	}, []);
 
-	// 3. PROCESAMIENTO (Búsqueda + Distancia)
 	const processedMessages = useMemo(() => {
 		const filterText = $searchQuery.toLowerCase().trim();
-
-		return rawMessages
-			.filter((p) => {
-				if (!filterText) return true;
-				return (
-					p.message.toLowerCase().includes(filterText) ||
-					p.category.toLowerCase().includes(filterText)
-				);
-			})
-			.map((p) => {
-				// Calcular distancia para pintar el puntito verde si estás cerca
-				let isNearby = false;
-				if (viewerLocation && p.location) {
-					const dist = distanceBetween(viewerLocation, p.location);
-					if (dist < PROXIMITY_DEGREES) isNearby = true;
-				}
-				return { ...p, isNearby, text: p.message };
-			});
-	}, [rawMessages, $searchQuery, viewerLocation]);
+		return rawMessages.filter((p) => {
+			if (!filterText) return true;
+			return (
+				p.message.toLowerCase().includes(filterText) ||
+				p.category.toLowerCase().includes(filterText)
+			);
+		});
+	}, [rawMessages, $searchQuery]); // Se actualiza si cambia rawMessages
 
 	return (
 		<>
@@ -173,13 +126,15 @@ export const UniverseCanvas = () => {
 				<React.Suspense
 					fallback={
 						<div className="text-zinc-600 font-mono text-xs p-4">
-							Cargando Aether...
+							Cargando...
 						</div>
 					}
 				>
+					{/* Le pasamos la 'key' o 'version' para obligar al repintado */}
 					<MapComponent
 						messages={processedMessages}
 						openProfile={openProfileMemo}
+						version={dataVersion} // CLAVE PARA EL TIEMPO REAL
 					/>
 				</React.Suspense>
 			</div>

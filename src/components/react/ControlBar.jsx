@@ -6,7 +6,6 @@ import { db, auth } from "../../firebase.js";
 import { useStore } from "@nanostores/react";
 import { searchQuery } from "../../store.js";
 
-// Radio de privacidad (1km aprox)
 const RANDOM_RADIUS_DEGREE = 0.01;
 
 const addRandomOffset = (location) => {
@@ -18,6 +17,7 @@ const addRandomOffset = (location) => {
 	return newLocation;
 };
 
+// 1. Obtener coordenadas GPS/IP (Automático)
 const getPreciseLocation = () => {
 	return new Promise((resolve) => {
 		if ("geolocation" in navigator) {
@@ -28,7 +28,7 @@ const getPreciseLocation = () => {
 						lon: position.coords.longitude,
 					}),
 				(error) => {
-					console.warn("Error GPS:", error);
+					console.warn("GPS falló:", error);
 					resolve(null);
 				},
 				{ enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
@@ -39,6 +39,7 @@ const getPreciseLocation = () => {
 	});
 };
 
+// 2. Coordenadas -> Nombre Ciudad (Reverse Geocoding)
 const reverseGeocode = async (lat, lon) => {
 	try {
 		const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
@@ -46,20 +47,33 @@ const reverseGeocode = async (lat, lon) => {
 			headers: { "Accept-Language": "es", "User-Agent": "AetherApp/1.0" },
 		});
 		const data = await response.json();
-		const address = data.address;
-		if (address) {
-			const city =
-				address.city ||
-				address.town ||
-				address.village ||
-				address.municipality ||
-				address.county;
-			const country = address.country;
-			return { cityName: city || null, countryName: country || null };
-		}
-		return { cityName: null, countryName: null };
+		return data.address
+			? data.address.city ||
+					data.address.town ||
+					data.address.municipality ||
+					""
+			: "";
 	} catch (error) {
-		return { cityName: null, countryName: null };
+		return "";
+	}
+};
+
+// 3. NUEVO: Nombre Ciudad -> Coordenadas (Forward Geocoding)
+// Esto arregla lo de "Alicante". Si escribes "Valencia", busca las coordenadas de Valencia.
+const getCoordsFromCityName = async (cityName) => {
+	try {
+		const url = `https://nominatim.openstreetmap.org/search?format=json&q=${cityName}&limit=1`;
+		const response = await fetch(url, {
+			headers: { "User-Agent": "AetherApp/1.0" },
+		});
+		const data = await response.json();
+		if (data && data.length > 0) {
+			return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+		}
+		return null;
+	} catch (error) {
+		console.error("Error buscando ciudad:", error);
+		return null;
 	}
 };
 
@@ -69,26 +83,25 @@ export default function ControlBar() {
 	const [msg, setMsg] = useState("");
 	const [cat, setCat] = useState("");
 
-	// NUEVO: Estado para controlar la ubicación manual
+	// Estados para ubicación
 	const [manualCity, setManualCity] = useState("");
+	const [autoLocation, setAutoLocation] = useState(null); // Guardamos la ubicación detectada
 	const [isLocating, setIsLocating] = useState(false);
-	const [coords, setCoords] = useState(null);
 	const [isSending, setIsSending] = useState(false);
 
-	// Al abrir el modal, buscamos la ubicación automáticamente
+	// Al abrir, intentamos localizar automáticamente
 	useEffect(() => {
 		if (open) {
 			setIsLocating(true);
-			setManualCity("Localizando...");
+			setManualCity("Detectando...");
 			(async () => {
 				const loc = await getPreciseLocation();
 				if (loc) {
-					setCoords(loc);
-					const names = await reverseGeocode(loc.lat, loc.lon);
-					// Si encuentra nombre, lo pone. Si no, lo deja vacío para que tú escribas.
-					setManualCity(names.cityName || "");
+					setAutoLocation(loc); // Guardamos coordenadas automáticas
+					const name = await reverseGeocode(loc.lat, loc.lon);
+					setManualCity(name || "");
 				} else {
-					setManualCity(""); // No se pudo localizar, escribe tú
+					setManualCity("");
 				}
 				setIsLocating(false);
 			})();
@@ -103,9 +116,32 @@ export default function ControlBar() {
 		setIsSending(true);
 
 		try {
-			// Usamos las coordenadas que ya buscamos al abrir (o null si falló)
-			// Si hay coordenadas, las aleatorizamos un poco
-			let finalLocation = coords ? addRandomOffset(coords) : null;
+			let finalCoords = null;
+			let finalCityName = manualCity.trim();
+
+			// LÓGICA INTELIGENTE:
+			// 1. Si el usuario ha cambiado el nombre de la ciudad (ej: borró "Alicante" y puso "Valencia")
+			//    Buscamos las coordenadas de lo que ha escrito.
+			if (finalCityName && (!autoLocation || isLocating)) {
+				const coordsFromName = await getCoordsFromCityName(finalCityName);
+				if (coordsFromName) {
+					finalCoords = coordsFromName;
+				}
+			}
+			// 2. Si no ha tocado nada o falló la búsqueda por nombre, usamos el GPS/IP detectado
+			if (!finalCoords && autoLocation) {
+				finalCoords = autoLocation;
+			}
+			// 3. Si aún así tenemos coordenadas, intentamos buscar el nombre de nuevo si estaba vacío
+			if (finalCoords && !finalCityName) {
+				const coordsFromName = await getCoordsFromCityName(finalCityName);
+				if (coordsFromName) finalCoords = coordsFromName;
+			}
+
+			// Aplicar el desplazamiento aleatorio (para que no caiga siempre en el centro exacto)
+			const randomizedLocation = finalCoords
+				? addRandomOffset(finalCoords)
+				: null;
 
 			const thoughtData = {
 				message: msg,
@@ -114,10 +150,8 @@ export default function ControlBar() {
 				uid: user ? user.uid : "anonymous",
 				photoURL: user ? user.photoURL : null,
 				displayName: user ? user.displayName : "Anónimo",
-				// AQUÍ ESTÁ LA CLAVE: Usamos lo que TÚ hayas escrito en el input
-				cityName: manualCity || null,
-				countryName: null,
-				location: finalLocation,
+				cityName: finalCityName || null,
+				location: randomizedLocation,
 			};
 
 			await addDoc(collection(db, "thoughts"), thoughtData);
@@ -183,7 +217,6 @@ export default function ControlBar() {
 										placeholder="CANAL"
 										className="w-1/2 bg-transparent border-b border-white/10 py-2 text-white/60 text-[10px] md:text-xs font-mono tracking-widest uppercase focus:outline-none focus:border-emerald-500/50 text-center"
 									/>
-
 									<div className="w-1/2 relative">
 										<MapPin className="absolute left-0 top-2 w-3 h-3 text-white/30" />
 										<input
@@ -198,7 +231,6 @@ export default function ControlBar() {
 										/>
 									</div>
 								</div>
-
 								<textarea
 									value={msg}
 									onChange={(e) => setMsg(e.target.value)}
