@@ -1,4 +1,4 @@
-// File: alejandro-m-p/aether-project/aether-project-main/src/components/react/ControlBar.jsx
+// File: src/components/react/ControlBar.jsx
 
 import React, { useState, useEffect } from "react";
 import {
@@ -108,10 +108,12 @@ export default function ControlBar() {
 
 	const [manualCity, setManualCity] = useState("");
 
-	// ERROR CORREGIDO: Usar useState para el estado de React
 	const [selectedExactLocation, setSelectedExactLocation] = useState(null);
 
 	const [isSending, setIsSending] = useState(false);
+
+	// --- NUEVO ESTADO PARA TRADUCCIÓN GLOBAL ---
+	const [notifyTelegram, setNotifyTelegram] = useState(false);
 
 	// Bandera para saber si la categoría que está escribiendo el usuario ya existe
 	const catExists = $availableCategories
@@ -238,6 +240,9 @@ export default function ControlBar() {
 				displayName: user ? user.displayName : "Anónimo",
 				cityName: finalCityName,
 				location: randomizedLocation,
+				// --- NUEVOS CAMPOS PARA N8N ---
+				notifyTelegram: notifyTelegram, // Indica si el usuario quiere traducción global
+				aiProcessed: false, // Flag para evitar bucles infinitos en n8n
 			};
 
 			await addDoc(collection(db, "thoughts"), thoughtData);
@@ -278,13 +283,11 @@ export default function ControlBar() {
 
 	return (
 		<>
-			{/* --- FOOTER SEPARADO: AÑADIDO items-center y w-40/w-52 fijos --- */}
+			{/* --- FOOTER SEPARADO --- */}
 			<footer className="fixed bottom-0 left-0 right-0 z-50 w-full px-4 md:px-8 py-4 md:py-8 pointer-events-none flex justify-center gap-4 items-center">
-				{/* --- BOTÓN DE BUSCAR/FILTRAR (A la izquierda) --- */}
-				{/* AÑADIDO w-40 md:w-52 para ancho fijo */}
+				{/* --- BOTÓN DE BUSCAR/FILTRAR --- */}
 				<div className="category-menu-container pointer-events-auto relative w-40 md:w-52">
 					<button
-						// AÑADIDO w-full y justify-center para centrar el contenido y tomar el ancho fijo
 						className="w-full flex items-center justify-center gap-3 bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 cursor-pointer hover:bg-zinc-800/80 transition-colors rounded-full relative shadow-[0_0_20px_rgba(0,0,0,0.5)] px-5 py-3.5 md:px-6 md:py-4"
 						onClick={handleToggleCatMenu}
 					>
@@ -309,7 +312,7 @@ export default function ControlBar() {
 						/>
 					</button>
 
-					{/* Menú Desplegable de Categorías del Footer - Contenedor: rounded-lg */}
+					{/* Menú Desplegable */}
 					{isCatMenuOpen && (
 						<div className="absolute bottom-[130%] left-0 w-full min-w-[200px] bg-zinc-950/95 backdrop-blur-xl border border-zinc-800 rounded-lg overflow-hidden shadow-2xl animate-in slide-in-from-bottom-2 fade-in duration-200">
 							<div className="max-h-60 overflow-y-auto custom-scrollbar p-1">
@@ -319,7 +322,6 @@ export default function ControlBar() {
 										searchQuery.set("");
 										setIsCatMenuOpen(false);
 									}}
-									// Elemento individual: rounded-full
 									className="w-full text-left px-4 py-3 hover:bg-zinc-800/50 rounded-full flex items-center justify-between group transition-colors"
 								>
 									<span className="text-xs font-mono text-zinc-400 group-hover:text-white uppercase tracking-wider">
@@ -335,7 +337,6 @@ export default function ControlBar() {
 											searchQuery.set(c.toLowerCase());
 											setIsCatMenuOpen(false);
 										}}
-										// Elemento individual: rounded-full
 										className="w-full text-left px-4 py-3 hover:bg-zinc-800/50 rounded-full flex items-center justify-between group transition-colors"
 									>
 										<span className="text-xs font-mono text-zinc-300 group-hover:text-cyan-400 uppercase tracking-wider">
@@ -351,12 +352,10 @@ export default function ControlBar() {
 					)}
 				</div>
 
-				{/* --- BOTÓN DE CREAR/TRANSMITIR (A la derecha) --- */}
-				{/* AÑADIDO wrapper con w-40 md:w-52 para ancho fijo */}
+				{/* --- BOTÓN DE CREAR/TRANSMITIR --- */}
 				<div className="pointer-events-auto w-40 md:w-52">
 					<button
 						onClick={() => setOpen(true)}
-						// AÑADIDO w-full y justify-center para centrar el contenido y tomar el ancho fijo
 						className="w-full flex items-center justify-center gap-2 md:gap-3 bg-emerald-700/50 backdrop-blur-xl border border-emerald-500/50 text-emerald-300 hover:text-white text-[10px] md:text-base font-mono uppercase tracking-widest px-5 py-3.5 md:px-6 md:py-4 rounded-full transition-all active:scale-[0.99] hover:shadow-[0_0_25px_rgba(16,185,129,0.5)]"
 					>
 						<Plus size={16} className="text-emerald-500" />
@@ -377,7 +376,6 @@ export default function ControlBar() {
 							<X size={20} />
 						</button>
 
-						{/* --- CONTENEDOR PRINCIPAL DEL MODAL - rounded-xl --- */}
 						<div className="bg-zinc-950/95 border border-cyan-500/20 rounded-xl p-6 md:p-8 shadow-[0_0_80px_rgba(6,182,212,0.2)] ring-2 ring-white/5 backdrop-blur-md">
 							<div className="text-center mb-6 md:mb-8 mt-2 md:mt-0">
 								<h2 className="text-white font-mono text-xs md:text-sm tracking-[0.3em] uppercase opacity-70">
@@ -386,9 +384,8 @@ export default function ControlBar() {
 							</div>
 
 							<form onSubmit={send} className="flex flex-col gap-6 md:gap-8">
-								{/* --- FILA SUPERIOR: CANAL (INPUT + CREAR) --- */}
+								{/* --- FILA SUPERIOR: CANAL --- */}
 								<div className="flex gap-4">
-									{/* 1/2: INPUT DE CANAL MEJORADO - rounded-full */}
 									<div className="w-1/2 relative z-50">
 										<label className="block text-[10px] text-zinc-400 font-mono tracking-widest mb-1">
 											CANAL (ESCRIBE)
@@ -401,14 +398,13 @@ export default function ControlBar() {
 												onBlur={() =>
 													setTimeout(() => setShowCatSuggestions(false), 200)
 												}
-												// Altura consistente: py-3
 												className="w-full bg-transparent py-3 pl-4 pr-8 text-white text-sm font-mono tracking-wide focus:outline-none placeholder-white/30"
 												autoComplete="off"
 											/>
 											<ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cyan-400 pointer-events-none" />
 										</div>
 
-										{/* Lista Desplegable: SOLO SELECCIÓN/BÚSQUEDA - Contenedor: rounded-lg */}
+										{/* Lista Desplegable */}
 										{showCatSuggestions && (
 											<div className="absolute top-[calc(100%+5px)] left-0 w-full mt-1 rounded-lg shadow-2xl z-[100] flex flex-col overflow-hidden bg-zinc-950 border border-cyan-500/30 max-h-[12rem]">
 												<div className="flex flex-col overflow-y-auto custom-scrollbar">
@@ -426,7 +422,6 @@ export default function ControlBar() {
 																	e.preventDefault();
 																	handleSelectExistingCat(existingCat);
 																}}
-																// Elemento de lista: rounded-full
 																className="px-3 py-3.5 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-cyan-400 cursor-pointer font-mono uppercase truncate text-center transition-colors border-b border-zinc-900 last:border-b-0 flex items-center justify-center gap-2 rounded-full mx-1 my-0.5"
 															>
 																<Search size={12} />
@@ -447,7 +442,7 @@ export default function ControlBar() {
 										)}
 									</div>
 
-									{/* 2/2: BOTÓN CREAR - rounded-full */}
+									{/* BOTÓN CREAR */}
 									<div className="w-1/2 flex items-start pt-[1.7rem] relative">
 										<button
 											type="button"
@@ -455,7 +450,6 @@ export default function ControlBar() {
 												e.preventDefault();
 												setShowCatSuggestions(false);
 											}}
-											// Botón a rounded-full
 											className={`w-full py-3 rounded-full text-white font-mono uppercase text-center transition-all flex items-center justify-center gap-2 text-xs font-bold shadow-xl z-40 relative group ${
 												cat.trim() && !catExists
 													? "bg-emerald-700/50 hover:bg-emerald-600/70 border border-emerald-500/50 hover:shadow-[0_0_20px_rgba(16,185,129,0.5)]"
@@ -484,7 +478,7 @@ export default function ControlBar() {
 									</div>
 								</div>
 
-								{/* --- FILA INFERIOR: UBICACIÓN MEJORADA - rounded-full --- */}
+								{/* --- FILA INFERIOR: UBICACIÓN --- */}
 								<div className="relative z-0 border border-cyan-700/50 rounded-full shadow-inner shadow-black/50 bg-zinc-900/50 px-4 py-3 flex items-center">
 									<MapPin className="w-5 h-5 text-cyan-400 mr-3" />
 
@@ -507,7 +501,32 @@ export default function ControlBar() {
 									</button>
 								</div>
 
-								{/* --- CAMPO DE MENSAJE - Textarea a rounded-full --- */}
+								{/* --- INTERRUPTOR TRADUCCIÓN GLOBAL (Botón Nuevo) --- */}
+								<div className="flex items-center justify-center py-4">
+									<button
+										type="button"
+										onClick={() => setNotifyTelegram(!notifyTelegram)}
+										className={`flex items-center gap-2 px-5 py-2 rounded-full border transition-all duration-300 ${
+											notifyTelegram
+												? "bg-purple-600/20 border-purple-500 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.4)] scale-105"
+												: "bg-zinc-900/50 border-zinc-700 text-zinc-500 hover:text-zinc-300"
+										}`}
+									>
+										<Globe
+											size={16}
+											className={
+												notifyTelegram ? "text-purple-400 animate-pulse" : ""
+											}
+										/>
+										<span className="text-xs font-mono uppercase tracking-widest">
+											{notifyTelegram
+												? "TRADUCCIÓN GLOBAL 🌍"
+												: "IDIOMA ORIGINAL"}
+										</span>
+									</button>
+								</div>
+
+								{/* --- CAMPO DE MENSAJE --- */}
 								<textarea
 									value={msg}
 									onChange={(e) => setMsg(e.target.value)}
@@ -516,7 +535,7 @@ export default function ControlBar() {
 									maxLength={4000}
 								/>
 
-								{/* --- BOTÓN ENVIAR - rounded-full --- */}
+								{/* --- BOTÓN ENVIAR --- */}
 								<button
 									disabled={isSending || !msg.trim()}
 									className="w-full bg-emerald-900/20 hover:bg-emerald-800/50 border border-emerald-500/20 text-emerald-400 hover:text-white py-3 rounded-full text-xs font-mono tracking-[0.2em] uppercase transition-all disabled:opacity-50 mt-2 group cursor-pointer hover:shadow-[0_0_20px_rgba(16,185,129,0.5)] disabled:cursor-not-allowed"
