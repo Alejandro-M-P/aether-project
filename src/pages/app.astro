@@ -2,9 +2,8 @@
 import Layout from '../layouts/Layout.astro';
 import { UniverseCanvas } from '../components/react/Islands.jsx';
 import ControlBar from '../components/react/ControlBar.jsx';
-import UserWidget from '../components/react/UserWidget.jsx';
+import { UserWidget } from '../components/react/UserWidget.jsx';
 ---
-
 <Layout title="AETHER | Sistema">
 
 	<div class="fixed inset-0 bg-black z-0">
@@ -14,12 +13,12 @@ import UserWidget from '../components/react/UserWidget.jsx';
 	<main class="relative z-10 w-full h-screen pointer-events-none">
 	</main>
 
-	<header class="fixed top-0 left-0 w-full z-40 px-6 py-4 flex justify-between items-center pointer-events-none select-none bg-gradient-to-b from-black via-black/80 to-transparent">
+	<header class="fixed top-0 left-0 w-full z-40 px-4 md:px-6 py-3 md:py-4 flex justify-between items-center pointer-events-none select-none bg-gradient-to-b from-black via-black/80 to-transparent">
 		<div class="pointer-events-auto flex flex-col">
-			<h1 class="text-2xl md:text-3xl font-bold tracking-tighter text-white drop-shadow-md font-mono">
+			<h1 class="text-lg md:text-2xl font-light tracking-tight text-white font-mono opacity-90">
 				AETHER
 			</h1>
-			<span class="text-[10px] text-emerald-500/50 font-mono uppercase tracking-[0.3em] pl-1">
+			<span class="text-[8px] md:text-[10px] text-emerald-500/50 font-mono uppercase tracking-[0.3em] pl-0.5">
 				Online
 			</span>
 		</div>
