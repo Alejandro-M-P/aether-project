@@ -11,22 +11,27 @@ const DEFAULT_AVATAR =
 	"https://cdn-icons-png.flaticon.com/512/3214/3214823.png";
 
 const CATEGORY_COLORS = {
-	IDEAS: "#fbbf24", // yellow-400
-	NOTICIAS: "#c084fc", // purple-400
-	GENERAL: "#22d3ee", // cyan-400
+	IDEAS: "#fbbf24",
+	NOTICIAS: "#c084fc",
+	GENERAL: "#22d3ee",
 };
 
-// Límite de caracteres para la vista previa
 const MAX_TEXT_LENGTH = 300;
 
-// AÑADIDO: openProfile a las props
-export const MapComponent = ({ messages = [], openProfile }) => {
+// Iconos SVG
+const ICON_THUMBS_UP = `
+<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z"/></svg>
+`;
+
+const ICON_THUMBS_DOWN = `
+<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22h0a3.13 3.13 0 0 1-3-3.88Z"/></svg>
+`;
+
+export const MapComponent = ({ messages = [], openProfile, onVote }) => {
 	const globeEl = useRef();
 	const [GlobePackage, setGlobePackage] = useState(null);
 	const [ThreePackage, setThreePackage] = useState(null);
-
 	const $isPicking = useStore(isPickingLocation);
-
 	const [selectedThoughtId, setSelectedThoughtId] = useState(null);
 	const [readThoughtIds, setReadThoughtIds] = useState(new Set());
 	const [dimensions, setDimensions] = useState({ width: 800, height: 800 });
@@ -37,8 +42,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 		if (typeof window !== "undefined") {
 			Promise.all([import("react-globe.gl"), import("three")]).then(
 				([globeMod, threeMod]) => {
-					const GlobeComponent = globeMod.default?.default || globeMod.default;
-					setGlobePackage(() => GlobeComponent);
+					setGlobePackage(() => globeMod.default?.default || globeMod.default);
 					setThreePackage(threeMod);
 				}
 			);
@@ -59,7 +63,6 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 			setGlobeReady(true);
 			const globe = globeEl.current;
 			const THREE = ThreePackage;
-
 			const renderer = globe.renderer();
 			renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 			renderer.antialias = true;
@@ -80,7 +83,6 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 				);
 			const ambientLight = new THREE.AmbientLight(0xffffff, 1.8);
 			globe.scene().add(ambientLight);
-
 			globe.pointOfView({ altitude: 1.8, lat: 20, lng: 0 });
 		}
 	}, [GlobePackage, ThreePackage, globeReady]);
@@ -93,7 +95,6 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 		globeEl.current.pointOfView({ lat, lng, altitude: targetAltitude }, 1000);
 	};
 
-	// --- LÓGICA DE DATOS (FOCUS MODE) ---
 	const mapData = useMemo(() => {
 		if ($isPicking) return [];
 		if (selectedThoughtId) {
@@ -160,7 +161,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 				htmlLng={(d) => d.location.lon}
 				htmlAltitude={0}
 				htmlElement={(d) => {
-					// 1. CREACIÓN DEL DOM
+					// 1. CREACIÓN (Initial Render)
 					if (!markersRef.current[d.id]) {
 						const wrapper = document.createElement("div");
 						wrapper.style.position = "absolute";
@@ -181,7 +182,6 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 							d.photoURL && d.photoURL.length > 5 ? d.photoURL : DEFAULT_AVATAR;
 						const locationText = getLocationText(d);
 
-						// --- LÓGICA DE TEXTO Y RECORTE ---
 						const finalMessage = d.text || d.message || "";
 						const isLong = finalMessage.length > MAX_TEXT_LENGTH;
 						const displayMessage = isLong
@@ -191,25 +191,15 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 						wrapper.innerHTML = `
                             <div style="position: relative; display: flex; align-items: center; justify-content: center;">
                                 <div class="js-popup" style="
-                                    display: none;
-                                    position: absolute;
-                                    bottom: 50px;
-                                    width: 320px;
-                                    background-color: #09090b;
-                                    border: 1px solid #27272a;
-                                    border-radius: 20px;
-                                    pointer-events: auto;
-                                    cursor: default;
-                                    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.8);
-                                    z-index: 1000;
-                                    display: flex;
-                                    flex-direction: column;
+                                    display: none; position: absolute; bottom: 50px; width: 320px;
+                                    background-color: #09090b; border: 1px solid #27272a; border-radius: 20px;
+                                    pointer-events: auto; cursor: default; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.8);
+                                    z-index: 1000; flex-direction: column;
                                 ">
                                     <div class="js-close-btn" style="
                                         position: absolute; top: -10px; right: -10px; width: 30px; height: 30px;
                                         background: black; border: 1px solid #52525b; border-radius: 50%;
-                                        display: flex; align-items: center; justify-content: center; color: white; cursor: pointer;
-                                        z-index: 1001;
+                                        display: flex; align-items: center; justify-content: center; color: white; cursor: pointer; z-index: 1001;
                                     ">✕</div>
 
                                     <div style="padding: 12px 20px; border-bottom: 1px solid #27272a; background: rgba(24, 24, 27, 0.5); border-top-left-radius: 20px; border-top-right-radius: 20px; flex-shrink: 0;">
@@ -233,85 +223,139 @@ export const MapComponent = ({ messages = [], openProfile }) => {
                                     </div>
 
                                     <div style="padding: 20px; max-height: 350px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #27272a transparent;">
-                                        <p class="js-message-text" style="
-                                            font-size: 14px;
-                                            color: #e4e4e7;
-                                            font-style: italic;
-                                            margin: 0;
-                                            line-height: 1.6;
-                                            white-space: pre-wrap;
-                                            overflow-wrap: break-word;
-                                            word-wrap: break-word;
-                                            user-select: text;
-                                        ">${displayMessage}</p>
+                                        <p class="js-message-text" style="font-size: 14px; color: #e4e4e7; font-style: italic; margin: 0; line-height: 1.6; white-space: pre-wrap; overflow-wrap: break-word; word-wrap: break-word; user-select: text;">${displayMessage}</p>
 										${
 											isLong
-												? `
-											<div class="js-read-more" style="
-												margin-top: 12px;
-												color: #22d3ee;
-												font-size: 10px;
-												font-weight: bold;
-												text-transform: uppercase;
-												cursor: pointer;
-												letter-spacing: 1px;
-                                                padding: 4px 0;
-                                                border: 1px solid #22d3ee80;
-                                                background: #22d3ee10;
-                                                border-radius: 999px; 
-                                                width: 120px; 
-                                                text-align: center;
-                                                margin-left: auto;
-                                                margin-right: auto;
-											">
-												+ Leer todo
-											</div>
-										`
+												? `<div class="js-read-more" style="margin-top: 12px; color: #22d3ee; font-size: 10px; font-weight: bold; text-transform: uppercase; cursor: pointer; letter-spacing: 1px; padding: 4px 0; border: 1px solid #22d3ee80; background: #22d3ee10; border-radius: 999px; width: 120px; text-align: center; margin-left: auto; margin-right: auto;">+ Leer todo</div>`
 												: ""
 										}
+
+                                        <div style="display: flex; gap: 10px; margin-top: 20px; border-top: 1px solid #27272a; padding-top: 15px;">
+                                            <button class="js-like-btn" style="
+                                                flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+                                                padding: 8px; background: #18181b; border: 1px solid #3f3f46; border-radius: 999px;
+                                                color: #a1a1aa; font-family: monospace; font-size: 11px; cursor: pointer; transition: all 0.2s;
+                                            ">
+                                                ${ICON_THUMBS_UP}
+                                                <span class="js-like-count" style="font-weight: bold;">0</span>
+                                            </button>
+
+                                            <button class="js-dislike-btn" style="
+                                                flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+                                                padding: 8px; background: #18181b; border: 1px solid #3f3f46; border-radius: 999px;
+                                                color: #a1a1aa; font-family: monospace; font-size: 11px; cursor: pointer; transition: all 0.2s;
+                                            ">
+                                                ${ICON_THUMBS_DOWN}
+                                                <span class="js-dislike-count" style="font-weight: bold;">0</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
-
-                                <div class="js-icon-container" style="
-                                    position: relative;
-                                    width: 40px; height: 40px;
-                                    z-index: 10;
-                                    pointer-events: auto;
-                                    cursor: pointer;
-                                ">
-                                    <img src="${photo}" class="js-photo" style="
-                                        width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
-                                        border: 2px solid #22d3ee; background: black; display: block;
-                                        box-shadow: 0 0 10px rgba(0,0,0,0.5); transition: transform 0.2s, border-color 0.2s;
-                                    " />
+                                <div class="js-icon-container" style="position: relative; width: 40px; height: 40px; z-index: 10; pointer-events: auto; cursor: pointer;">
+                                    <img src="${photo}" class="js-photo" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 2px solid #22d3ee; background: black; display: block; box-shadow: 0 0 10px rgba(0,0,0,0.5); transition: transform 0.2s, border-color 0.2s;" />
                                 </div>
                             </div>
                         `;
 
-						const preventMapDrag = (e) => {
-							e.stopPropagation();
-						};
+						const preventMapDrag = (e) => e.stopPropagation();
 
-						const interactables = [
-							wrapper.querySelector(".js-popup"),
-							wrapper.querySelector(".js-icon-container"),
-							wrapper.querySelector(".js-close-btn"),
-							wrapper.querySelector(".js-read-more"),
-							wrapper.querySelector(".js-message-text"),
-                            // AÑADIDO: para evitar que el clic en el nombre arrastre el mapa
-                            wrapper.querySelector(".js-display-name-btn"), 
-						];
+						// LISTENERS
+						const likeBtn = wrapper.querySelector(".js-like-btn");
+						const dislikeBtn = wrapper.querySelector(".js-dislike-btn");
+						const likeCountEl = wrapper.querySelector(".js-like-count");
+						const dislikeCountEl = wrapper.querySelector(".js-dislike-count");
 
-						interactables.forEach((el) => {
-							if (!el) return;
-							el.addEventListener("pointerdown", preventMapDrag);
-							el.addEventListener("mousedown", preventMapDrag);
-							el.addEventListener("touchstart", preventMapDrag);
-						});
-
-						// --- LOGICA DE EXPANSION ---
 						const readMoreBtn = wrapper.querySelector(".js-read-more");
-						if (readMoreBtn) {
+						const iconContainer = wrapper.querySelector(".js-icon-container");
+						const closeBtn = wrapper.querySelector(".js-close-btn");
+						const displayNameBtn = wrapper.querySelector(
+							".js-display-name-btn"
+						);
+
+						// --- OPTIMISTIC UI LOGIC (Feedback instantáneo) ---
+						if (likeBtn)
+							likeBtn.onclick = (e) => {
+								e.stopPropagation();
+
+								// Actualización visual inmediata
+								const isLiked = likeBtn.style.color === "rgb(34, 211, 238)"; // #22d3ee
+								const isDisliked =
+									dislikeBtn.style.color === "rgb(248, 113, 113)"; // #f87171
+
+								if (isLiked) {
+									// Toggle OFF
+									likeBtn.style.color = "#a1a1aa";
+									likeBtn.style.borderColor = "#3f3f46";
+									likeBtn.style.background = "#18181b";
+									likeCountEl.innerText = Math.max(
+										0,
+										parseInt(likeCountEl.innerText) - 1
+									);
+								} else {
+									// Toggle ON
+									likeBtn.style.color = "#22d3ee";
+									likeBtn.style.borderColor = "#22d3ee50";
+									likeBtn.style.background = "#22d3ee10";
+									likeCountEl.innerText = parseInt(likeCountEl.innerText) + 1;
+
+									// Remove Dislike if active
+									if (isDisliked) {
+										dislikeBtn.style.color = "#a1a1aa";
+										dislikeBtn.style.borderColor = "#3f3f46";
+										dislikeBtn.style.background = "#18181b";
+										dislikeCountEl.innerText = Math.max(
+											0,
+											parseInt(dislikeCountEl.innerText) - 1
+										);
+									}
+								}
+
+								if (onVote) onVote(d.id, "likes");
+							};
+
+						if (dislikeBtn)
+							dislikeBtn.onclick = (e) => {
+								e.stopPropagation();
+
+								// Actualización visual inmediata
+								const isDisliked =
+									dislikeBtn.style.color === "rgb(248, 113, 113)"; // #f87171
+								const isLiked = likeBtn.style.color === "rgb(34, 211, 238)"; // #22d3ee
+
+								if (isDisliked) {
+									// Toggle OFF
+									dislikeBtn.style.color = "#a1a1aa";
+									dislikeBtn.style.borderColor = "#3f3f46";
+									dislikeBtn.style.background = "#18181b";
+									dislikeCountEl.innerText = Math.max(
+										0,
+										parseInt(dislikeCountEl.innerText) - 1
+									);
+								} else {
+									// Toggle ON
+									dislikeBtn.style.color = "#f87171";
+									dislikeBtn.style.borderColor = "#f8717150";
+									dislikeBtn.style.background = "#f8717110";
+									dislikeCountEl.innerText =
+										parseInt(dislikeCountEl.innerText) + 1;
+
+									// Remove Like if active
+									if (isLiked) {
+										likeBtn.style.color = "#a1a1aa";
+										likeBtn.style.borderColor = "#3f3f46";
+										likeBtn.style.background = "#18181b";
+										likeCountEl.innerText = Math.max(
+											0,
+											parseInt(likeCountEl.innerText) - 1
+										);
+									}
+								}
+
+								if (onVote) onVote(d.id, "dislikes");
+							};
+						// --------------------------------------------------
+
+						if (readMoreBtn)
 							readMoreBtn.onclick = (e) => {
 								e.stopPropagation();
 								const textEl = wrapper.querySelector(".js-message-text");
@@ -320,7 +364,48 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 									readMoreBtn.style.display = "none";
 								}
 							};
-						}
+
+						if (iconContainer)
+							iconContainer.onclick = (e) => {
+								e.stopPropagation();
+								setReadThoughtIds((prev) => new Set(prev).add(d.id));
+								setSelectedThoughtId(d.id);
+								handleSmartZoom(d.location.lat, d.location.lon);
+							};
+
+						if (displayNameBtn)
+							displayNameBtn.onclick = (e) => {
+								e.stopPropagation();
+								openProfile({
+									uid: d.uid,
+									displayName: d.displayName,
+									photoURL: d.photoURL,
+								});
+							};
+
+						if (closeBtn)
+							closeBtn.onclick = (e) => {
+								e.stopPropagation();
+								setSelectedThoughtId(null);
+							};
+
+						const interactables = [
+							wrapper.querySelector(".js-popup"),
+							iconContainer,
+							closeBtn,
+							readMoreBtn,
+							wrapper.querySelector(".js-message-text"),
+							displayNameBtn,
+							likeBtn,
+							dislikeBtn,
+						];
+						interactables.forEach((el) => {
+							if (el) {
+								el.addEventListener("pointerdown", preventMapDrag);
+								el.addEventListener("mousedown", preventMapDrag);
+								el.addEventListener("touchstart", preventMapDrag);
+							}
+						});
 
 						markersRef.current[d.id] = wrapper;
 					}
@@ -328,39 +413,40 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 					// 2. ACTUALIZACIÓN (Render loop)
 					const el = markersRef.current[d.id];
 
-					const iconContainer = el.querySelector(".js-icon-container");
-					if (iconContainer) {
-						iconContainer.onclick = (e) => {
-							e.stopPropagation();
-							setReadThoughtIds((prev) => new Set(prev).add(d.id));
-							setSelectedThoughtId(d.id);
-							handleSmartZoom(d.location.lat, d.location.lon);
-						};
+					// Sincronización real con el servidor (eventual consistency)
+					// Sobrescribe el estado optimista con el real cuando llega
+					const likeCountEl = el.querySelector(".js-like-count");
+					if (likeCountEl) likeCountEl.innerText = d.likes || 0;
+
+					const dislikeCountEl = el.querySelector(".js-dislike-count");
+					if (dislikeCountEl) dislikeCountEl.innerText = d.dislikes || 0;
+
+					const likeBtn = el.querySelector(".js-like-btn");
+					const dislikeBtn = el.querySelector(".js-dislike-btn");
+
+					if (likeBtn) {
+						if (d.isLiked) {
+							likeBtn.style.color = "#22d3ee";
+							likeBtn.style.borderColor = "#22d3ee50";
+							likeBtn.style.background = "#22d3ee10";
+						} else {
+							likeBtn.style.color = "#a1a1aa";
+							likeBtn.style.borderColor = "#3f3f46";
+							likeBtn.style.background = "#18181b";
+						}
 					}
-                    
-                    // AÑADIDO: Manejador de clic para el nombre (abrir perfil)
-					const displayNameBtn = el.querySelector(".js-display-name-btn");
-					if (displayNameBtn) {
-						displayNameBtn.onclick = (e) => {
-							e.stopPropagation();
-							// Llama a la función openProfile pasada desde Islands.jsx
-							openProfile({
-								uid: d.uid,
-								displayName: d.displayName,
-								photoURL: d.photoURL,
-							});
-						};
-					}
-                    
-					const closeBtn = el.querySelector(".js-close-btn");
-					if (closeBtn) {
-						closeBtn.onclick = (e) => {
-							e.stopPropagation();
-							setSelectedThoughtId(null);
-						};
+					if (dislikeBtn) {
+						if (d.isDisliked) {
+							dislikeBtn.style.color = "#f87171";
+							dislikeBtn.style.borderColor = "#f8717150";
+							dislikeBtn.style.background = "#f8717110";
+						} else {
+							dislikeBtn.style.color = "#a1a1aa";
+							dislikeBtn.style.borderColor = "#3f3f46";
+							dislikeBtn.style.background = "#18181b";
+						}
 					}
 
-					// VISIBILIDAD
 					const popupEl = el.querySelector(".js-popup");
 					const photoImg = el.querySelector(".js-photo");
 					const isSelected = d.id === selectedThoughtId;
@@ -377,11 +463,7 @@ export const MapComponent = ({ messages = [], openProfile }) => {
 						if (popupEl) popupEl.style.display = "none";
 						if (photoImg) {
 							photoImg.style.transform = "scale(1)";
-							if (d.isRead) {
-								photoImg.style.borderColor = "#52525b"; // Leído
-							} else {
-								photoImg.style.borderColor = "#22d3ee"; // Nuevo
-							}
+							photoImg.style.borderColor = d.isRead ? "#52525b" : "#22d3ee";
 						}
 					}
 					return el;
