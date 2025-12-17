@@ -112,9 +112,6 @@ export default function ControlBar() {
 
 	const [isSending, setIsSending] = useState(false);
 
-	// --- AETHER SENTINEL: INTERRUPTOR DE VERIFICACIÓN ---
-	const [requestVerification, setRequestVerification] = useState(false);
-
 	// Bandera para saber si la categoría que está escribiendo el usuario ya existe
 	const catExists = $availableCategories
 		.map((c) => c.toUpperCase())
@@ -231,7 +228,7 @@ export default function ControlBar() {
 			const randomizedLocation = addRandomOffset(finalCoords);
 			const cleanCat = cat ? cat.trim().toUpperCase() : "GENERAL";
 
-			// 1. Preparamos el objeto (Añadimos campos para que el sistema escriba luego)
+			// Datos que van a Firebase
 			const thoughtData = {
 				message: msg,
 				category: cleanCat,
@@ -241,39 +238,31 @@ export default function ControlBar() {
 				displayName: user ? user.displayName : "Anónimo",
 				cityName: finalCityName,
 				location: randomizedLocation,
-				// Campos nuevos para "Sentinel"
-				needsVerification: requestVerification,
-				verifiedStatus: "pending", // pending, verified, fake
-				systemData: null, // Aquí n8n escribirá el clima/datos
+				// Campo vacío que n8n rellenará después con el "ECO"
+				systemEcho: null,
 			};
 
-			// 2. PRIMERO GUARDAMOS EN FIREBASE (Para conseguir el ID)
+			// 1. Guardamos en Firebase primero para obtener el ID
 			const docRef = await addDoc(collection(db, "thoughts"), thoughtData);
-			const newDocId = docRef.id;
 
-			// 3. AHORA LLAMAMOS A N8N (Pasándole el ID)
+			// 2. Disparamos "ECHO" (siempre, sin pedir permiso)
 			try {
-				// ⚠️ IMPORTANTE: Pon aquí tu URL del Webhook de n8n
+				// ⚠️ TU URL DE N8N (No olvides cambiarla si cambia)
 				const N8N_WEBHOOK_URL =
 					"http://localhost:5678/webhook-test/df3af043-d601-4b6e-816a-9d2b0656136e";
 
-				if (requestVerification) {
-					fetch(N8N_WEBHOOK_URL, {
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({
-							id: newDocId, // CRÍTICO: El ID para editar
-							mensaje: msg,
-							coords: randomizedLocation,
-							ciudad: finalCityName,
-							usuario: user ? user.displayName : "Anónimo",
-						}),
-					}).catch((err) =>
-						console.warn("n8n no responde (fire & forget)", err)
-					);
-				}
+				fetch(N8N_WEBHOOK_URL, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						id: docRef.id, // ID para editar luego
+						mensaje: msg, // Lo que dijo el usuario
+						coords: randomizedLocation, // Dónde está
+						usuario: user ? user.displayName : "Anónimo",
+					}),
+				}).catch((e) => console.log("Echo silencioso:", e));
 			} catch (n8nError) {
-				console.error("Error lanzando Sentinel:", n8nError);
+				console.error("Error trigger n8n:", n8nError);
 			}
 
 			setMsg("");
@@ -313,9 +302,8 @@ export default function ControlBar() {
 
 	return (
 		<>
-			{/* --- FOOTER SEPARADO --- */}
+			{/* --- FOOTER --- */}
 			<footer className="fixed bottom-0 left-0 right-0 z-50 w-full px-4 md:px-8 py-4 md:py-8 pointer-events-none flex justify-center gap-4 items-center">
-				{/* --- BOTÓN DE BUSCAR/FILTRAR --- */}
 				<div className="category-menu-container pointer-events-auto relative w-40 md:w-52">
 					<button
 						className="w-full flex items-center justify-center gap-3 bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 cursor-pointer hover:bg-zinc-800/80 transition-colors rounded-full relative shadow-[0_0_20px_rgba(0,0,0,0.5)] px-5 py-3.5 md:px-6 md:py-4"
@@ -342,7 +330,6 @@ export default function ControlBar() {
 						/>
 					</button>
 
-					{/* Menú Desplegable */}
 					{isCatMenuOpen && (
 						<div className="absolute bottom-[130%] left-0 w-full min-w-[200px] bg-zinc-950/95 backdrop-blur-xl border border-zinc-800 rounded-lg overflow-hidden shadow-2xl animate-in slide-in-from-bottom-2 fade-in duration-200">
 							<div className="max-h-60 overflow-y-auto custom-scrollbar p-1">
@@ -382,7 +369,6 @@ export default function ControlBar() {
 					)}
 				</div>
 
-				{/* --- BOTÓN DE CREAR/TRANSMITIR --- */}
 				<div className="pointer-events-auto w-40 md:w-52">
 					<button
 						onClick={() => setOpen(true)}
@@ -394,7 +380,7 @@ export default function ControlBar() {
 				</div>
 			</footer>
 
-			{/* --- MODAL DE NUEVA TRANSMISIÓN --- */}
+			{/* --- MODAL --- */}
 			{open && (
 				<div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-60 flex items-center justify-center p-4 md:p-6 overflow-y-auto">
 					<div className="w-full max-w-lg relative animate-in fade-in zoom-in duration-300 my-auto">
@@ -409,16 +395,15 @@ export default function ControlBar() {
 						<div className="bg-zinc-950/95 border border-cyan-500/20 rounded-xl p-6 md:p-8 shadow-[0_0_80px_rgba(6,182,212,0.2)] ring-2 ring-white/5 backdrop-blur-md">
 							<div className="text-center mb-6 md:mb-8 mt-2 md:mt-0">
 								<h2 className="text-white font-mono text-xs md:text-sm tracking-[0.3em] uppercase opacity-70">
-									AETHER SENTINEL
+									Nueva Transmisión
 								</h2>
 							</div>
 
 							<form onSubmit={send} className="flex flex-col gap-6 md:gap-8">
-								{/* --- FILA SUPERIOR: CANAL --- */}
 								<div className="flex gap-4">
 									<div className="w-1/2 relative z-50">
 										<label className="block text-[10px] text-zinc-400 font-mono tracking-widest mb-1">
-											CANAL (ESCRIBE)
+											CANAL
 										</label>
 										<div className="relative border border-cyan-700/50 rounded-full shadow-inner shadow-black/50 bg-zinc-900/50">
 											<input
@@ -433,85 +418,46 @@ export default function ControlBar() {
 											/>
 											<ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cyan-400 pointer-events-none" />
 										</div>
-
-										{/* Lista Desplegable */}
 										{showCatSuggestions && (
 											<div className="absolute top-[calc(100%+5px)] left-0 w-full mt-1 rounded-lg shadow-2xl z-[100] flex flex-col overflow-hidden bg-zinc-950 border border-cyan-500/30 max-h-[12rem]">
 												<div className="flex flex-col overflow-y-auto custom-scrollbar">
-													{filteredCats.length > 0 && (
-														<div className="px-3 py-2 text-[8px] text-zinc-600 font-mono uppercase bg-zinc-900/50 tracking-wider sticky top-0 border-b border-zinc-800">
-															Canales Existentes (SELECCIONAR)
+													{filteredCats.map((existingCat) => (
+														<div
+															key={existingCat}
+															onMouseDown={(e) => {
+																e.preventDefault();
+																handleSelectExistingCat(existingCat);
+															}}
+															className="px-3 py-3.5 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-cyan-400 cursor-pointer font-mono uppercase truncate text-center transition-colors border-b border-zinc-900 last:border-b-0 flex items-center justify-center gap-2 rounded-full mx-1 my-0.5"
+														>
+															<Search size={12} />
+															{existingCat}
 														</div>
-													)}
-
-													{filteredCats.length > 0 ? (
-														filteredCats.map((existingCat) => (
-															<div
-																key={existingCat}
-																onMouseDown={(e) => {
-																	e.preventDefault();
-																	handleSelectExistingCat(existingCat);
-																}}
-																className="px-3 py-3.5 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-cyan-400 cursor-pointer font-mono uppercase truncate text-center transition-colors border-b border-zinc-900 last:border-b-0 flex items-center justify-center gap-2 rounded-full mx-1 my-0.5"
-															>
-																<Search size={12} />
-																{existingCat}
-																{existingCat.toUpperCase() ===
-																	cat.trim().toUpperCase() && (
-																	<Check className="w-3 h-3 text-cyan-400 ml-2" />
-																)}
-															</div>
-														))
-													) : (
-														<div className="px-3 py-3.5 text-xs text-zinc-600 font-mono text-center italic">
-															Sin coincidencias.
-														</div>
-													)}
+													))}
 												</div>
 											</div>
 										)}
 									</div>
-
-									{/* BOTÓN CREAR */}
 									<div className="w-1/2 flex items-start pt-[1.7rem] relative">
 										<button
 											type="button"
-											onMouseDown={(e) => {
-												e.preventDefault();
-												setShowCatSuggestions(false);
-											}}
 											className={`w-full py-3 rounded-full text-white font-mono uppercase text-center transition-all flex items-center justify-center gap-2 text-xs font-bold shadow-xl z-40 relative group ${
 												cat.trim() && !catExists
-													? "bg-emerald-700/50 hover:bg-emerald-600/70 border border-emerald-500/50 hover:shadow-[0_0_20px_rgba(16,185,129,0.5)]"
+													? "bg-emerald-700/50 hover:bg-emerald-600/70 border border-emerald-500/50"
 													: "bg-zinc-800/50 border border-zinc-700/50 text-zinc-500 cursor-default"
 											}`}
 											disabled={!cat.trim() || catExists}
-											title={
-												!cat.trim()
-													? "Escribe un nombre para crear"
-													: catExists
-													? "Este canal ya existe"
-													: `Crear canal: ${cat}`
-											}
 										>
-											<Plus size={16} />
+											<Plus size={16} />{" "}
 											{cat.trim()
 												? `CREAR: "${cat.toUpperCase()}"`
 												: "CREAR CANAL"}
-
-											{catExists && (
-												<span className="absolute -top-3 right-0 text-[8px] px-1 text-red-400 font-mono tracking-widest bg-zinc-950/80 rounded">
-													Ya Existe
-												</span>
-											)}
 										</button>
 									</div>
 								</div>
 
-								{/* --- FILA INFERIOR: UBICACIÓN --- */}
 								<div className="relative z-0 border border-cyan-700/50 rounded-full shadow-inner shadow-black/50 bg-zinc-900/50 px-4 py-3 flex items-center">
 									<MapPin className="w-5 h-5 text-cyan-400 mr-3" />
-
 									<input
 										value={manualCity}
 										onChange={(e) => {
@@ -525,39 +471,11 @@ export default function ControlBar() {
 										type="button"
 										onClick={handlePickLocation}
 										className="p-1 text-cyan-400 hover:text-white transition-colors ml-2"
-										title="Seleccionar en mapa"
 									>
 										<Globe size={20} />
 									</button>
 								</div>
 
-								{/* --- INTERRUPTOR SENTINEL --- */}
-								<div className="flex items-center justify-center py-4">
-									<button
-										type="button"
-										onClick={() => setRequestVerification(!requestVerification)}
-										className={`flex items-center gap-2 px-5 py-2 rounded-full border transition-all duration-300 ${
-											requestVerification
-												? "bg-red-600/20 border-red-500 text-red-300 shadow-[0_0_15px_rgba(239,68,68,0.4)] scale-105"
-												: "bg-zinc-900/50 border-zinc-700 text-zinc-500 hover:text-zinc-300"
-										}`}
-									>
-										<div
-											className={`w-2 h-2 rounded-full ${
-												requestVerification
-													? "bg-red-500 animate-ping"
-													: "bg-zinc-600"
-											}`}
-										/>
-										<span className="text-xs font-mono uppercase tracking-widest">
-											{requestVerification
-												? "ANÁLISIS DE IA ACTIVADO 🤖"
-												: "SOLO PUBLICAR"}
-										</span>
-									</button>
-								</div>
-
-								{/* --- CAMPO DE MENSAJE --- */}
 								<textarea
 									value={msg}
 									onChange={(e) => setMsg(e.target.value)}
@@ -566,7 +484,6 @@ export default function ControlBar() {
 									maxLength={4000}
 								/>
 
-								{/* --- BOTÓN ENVIAR --- */}
 								<button
 									disabled={isSending || !msg.trim()}
 									className="w-full bg-emerald-900/20 hover:bg-emerald-800/50 border border-emerald-500/20 text-emerald-400 hover:text-white py-3 rounded-full text-xs font-mono tracking-[0.2em] uppercase transition-all disabled:opacity-50 mt-2 group cursor-pointer hover:shadow-[0_0_20px_rgba(16,185,129,0.5)] disabled:cursor-not-allowed"
