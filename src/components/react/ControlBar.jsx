@@ -112,7 +112,7 @@ export default function ControlBar() {
 
 	const [isSending, setIsSending] = useState(false);
 
-	// --- NUEVO ESTADO PARA TRADUCCIÓN GLOBAL ---
+	// --- ESTADO PARA TRADUCCIÓN GLOBAL ---
 	const [notifyTelegram, setNotifyTelegram] = useState(false);
 
 	// Bandera para saber si la categoría que está escribiendo el usuario ya existe
@@ -240,10 +240,37 @@ export default function ControlBar() {
 				displayName: user ? user.displayName : "Anónimo",
 				cityName: finalCityName,
 				location: randomizedLocation,
-				// --- NUEVOS CAMPOS PARA N8N ---
-				notifyTelegram: notifyTelegram, // Indica si el usuario quiere traducción global
-				aiProcessed: false, // Flag para evitar bucles infinitos en n8n
+				notifyTelegram: notifyTelegram,
+				aiProcessed: false,
 			};
+
+			// ============================================================
+			// INICIO: INTEGRACIÓN CON N8N (AUTOMATIZACIÓN)
+			// ============================================================
+			try {
+				// ⚠️ IMPORTANTE: PEGA AQUÍ TU URL DE N8N (WEBHOOK TEST URL)
+				const N8N_WEBHOOK_URL =
+					"https://pega-tu-url-aqui.com/webhook/traduccion";
+
+				// Enviamos los datos sin esperar (para que la app no se trabe)
+				fetch(N8N_WEBHOOK_URL, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						mensaje: msg,
+						usuario: user ? user.displayName : "Anónimo",
+						ciudad: finalCityName,
+						traducir: notifyTelegram, // true si el botón estaba activado
+					}),
+				}).catch((err) =>
+					console.warn("n8n no responde (¿está encendido?):", err)
+				);
+			} catch (n8nError) {
+				console.error("Error lanzando automatización:", n8nError);
+			}
+			// ============================================================
+			// FIN: INTEGRACIÓN CON N8N
+			// ============================================================
 
 			await addDoc(collection(db, "thoughts"), thoughtData);
 			setMsg("");
@@ -501,7 +528,7 @@ export default function ControlBar() {
 									</button>
 								</div>
 
-								{/* --- INTERRUPTOR TRADUCCIÓN GLOBAL (Botón Nuevo) --- */}
+								{/* --- INTERRUPTOR TRADUCCIÓN GLOBAL --- */}
 								<div className="flex items-center justify-center py-4">
 									<button
 										type="button"
