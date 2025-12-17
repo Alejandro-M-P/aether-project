@@ -112,8 +112,8 @@ export default function ControlBar() {
 
 	const [isSending, setIsSending] = useState(false);
 
-	// --- ESTADO PARA TRADUCCIÓN GLOBAL ---
-	const [notifyTelegram, setNotifyTelegram] = useState(false);
+	// --- AETHER SENTINEL: INTERRUPTOR DE VERIFICACIÓN ---
+	const [requestVerification, setRequestVerification] = useState(false);
 
 	// Bandera para saber si la categoría que está escribiendo el usuario ya existe
 	const catExists = $availableCategories
@@ -231,6 +231,7 @@ export default function ControlBar() {
 			const randomizedLocation = addRandomOffset(finalCoords);
 			const cleanCat = cat ? cat.trim().toUpperCase() : "GENERAL";
 
+			// 1. Preparamos el objeto (Añadimos campos para que el sistema escriba luego)
 			const thoughtData = {
 				message: msg,
 				category: cleanCat,
@@ -240,39 +241,41 @@ export default function ControlBar() {
 				displayName: user ? user.displayName : "Anónimo",
 				cityName: finalCityName,
 				location: randomizedLocation,
-				notifyTelegram: notifyTelegram,
-				aiProcessed: false,
+				// Campos nuevos para "Sentinel"
+				needsVerification: requestVerification,
+				verifiedStatus: "pending", // pending, verified, fake
+				systemData: null, // Aquí n8n escribirá el clima/datos
 			};
 
-			// ============================================================
-			// INICIO: INTEGRACIÓN CON N8N (AUTOMATIZACIÓN)
-			// ============================================================
+			// 2. PRIMERO GUARDAMOS EN FIREBASE (Para conseguir el ID)
+			const docRef = await addDoc(collection(db, "thoughts"), thoughtData);
+			const newDocId = docRef.id;
+
+			// 3. AHORA LLAMAMOS A N8N (Pasándole el ID)
 			try {
-				// ⚠️ IMPORTANTE: PEGA AQUÍ TU URL DE N8N (WEBHOOK TEST URL)
+				// ⚠️ IMPORTANTE: Pon aquí tu URL del Webhook de n8n
 				const N8N_WEBHOOK_URL =
-					"https://pega-tu-url-aqui.com/webhook/traduccion";
+					"http://localhost:5678/webhook-test/df3af043-d601-4b6e-816a-9d2b0656136e";
 
-				// Enviamos los datos sin esperar (para que la app no se trabe)
-				fetch(N8N_WEBHOOK_URL, {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						mensaje: msg,
-						usuario: user ? user.displayName : "Anónimo",
-						ciudad: finalCityName,
-						traducir: notifyTelegram, // true si el botón estaba activado
-					}),
-				}).catch((err) =>
-					console.warn("n8n no responde (¿está encendido?):", err)
-				);
+				if (requestVerification) {
+					fetch(N8N_WEBHOOK_URL, {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							id: newDocId, // CRÍTICO: El ID para editar
+							mensaje: msg,
+							coords: randomizedLocation,
+							ciudad: finalCityName,
+							usuario: user ? user.displayName : "Anónimo",
+						}),
+					}).catch((err) =>
+						console.warn("n8n no responde (fire & forget)", err)
+					);
+				}
 			} catch (n8nError) {
-				console.error("Error lanzando automatización:", n8nError);
+				console.error("Error lanzando Sentinel:", n8nError);
 			}
-			// ============================================================
-			// FIN: INTEGRACIÓN CON N8N
-			// ============================================================
 
-			await addDoc(collection(db, "thoughts"), thoughtData);
 			setMsg("");
 			setCat("");
 			setManualCity("");
@@ -406,7 +409,7 @@ export default function ControlBar() {
 						<div className="bg-zinc-950/95 border border-cyan-500/20 rounded-xl p-6 md:p-8 shadow-[0_0_80px_rgba(6,182,212,0.2)] ring-2 ring-white/5 backdrop-blur-md">
 							<div className="text-center mb-6 md:mb-8 mt-2 md:mt-0">
 								<h2 className="text-white font-mono text-xs md:text-sm tracking-[0.3em] uppercase opacity-70">
-									Nueva Transmisión
+									AETHER SENTINEL
 								</h2>
 							</div>
 
@@ -528,27 +531,28 @@ export default function ControlBar() {
 									</button>
 								</div>
 
-								{/* --- INTERRUPTOR TRADUCCIÓN GLOBAL --- */}
+								{/* --- INTERRUPTOR SENTINEL --- */}
 								<div className="flex items-center justify-center py-4">
 									<button
 										type="button"
-										onClick={() => setNotifyTelegram(!notifyTelegram)}
+										onClick={() => setRequestVerification(!requestVerification)}
 										className={`flex items-center gap-2 px-5 py-2 rounded-full border transition-all duration-300 ${
-											notifyTelegram
-												? "bg-purple-600/20 border-purple-500 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.4)] scale-105"
+											requestVerification
+												? "bg-red-600/20 border-red-500 text-red-300 shadow-[0_0_15px_rgba(239,68,68,0.4)] scale-105"
 												: "bg-zinc-900/50 border-zinc-700 text-zinc-500 hover:text-zinc-300"
 										}`}
 									>
-										<Globe
-											size={16}
-											className={
-												notifyTelegram ? "text-purple-400 animate-pulse" : ""
-											}
+										<div
+											className={`w-2 h-2 rounded-full ${
+												requestVerification
+													? "bg-red-500 animate-ping"
+													: "bg-zinc-600"
+											}`}
 										/>
 										<span className="text-xs font-mono uppercase tracking-widest">
-											{notifyTelegram
-												? "TRADUCCIÓN GLOBAL 🌍"
-												: "IDIOMA ORIGINAL"}
+											{requestVerification
+												? "ANÁLISIS DE IA ACTIVADO 🤖"
+												: "SOLO PUBLICAR"}
 										</span>
 									</button>
 								</div>
