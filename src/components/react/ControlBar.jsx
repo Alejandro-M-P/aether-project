@@ -217,24 +217,38 @@ export default function ControlBar() {
 			// 1. Guardar en Firebase
 			const docRef = await addDoc(collection(db, "thoughts"), thoughtData);
 
-			// 2. Llamada al Oráculo (Aether Echo)
+			// ============================================================
+			// 2. CONEXIÓN CON TU N8N (IA VERIFICADORA)
+			// ============================================================
 			try {
-				const N8N_WEBHOOK_URL =
-					"http://localhost:5678/webhook-test/aether-echo";
+				// ⚠️ IMPORTANTE: SI USAS N8N LOCAL, DEBES USAR 'n8n start --tunnel'
+				// Y PEGAR AQUÍ LA URL PÚBLICA QUE TE DÉ (tipo https://....hooks.n8n.cloud/...)
+				const N8N_WEBHOOK_URL = "PON_AQUI_LA_URL_DEL_TUNEL_O_PRODUCCION";
 
 				fetch(N8N_WEBHOOK_URL, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
-						id: docRef.id,
-						mensaje: msg,
-						coords: randomizedLocation,
-						usuario: user ? user.displayName : "Anónimo",
+						message: msg,
+						location: finalCityName,
 					}),
-				}).catch((e) => console.log("n8n offline:", e));
+				})
+					.then(async (response) => {
+						if (response.ok) {
+							const data = await response.json();
+							// Si la IA devuelve un veredicto, lo mostramos
+							if (data.analisis_aether) {
+								alert(
+									`🤖 VEREDICTO AETHER:\n\n${data.analisis_aether.veredicto}\n\n${data.analisis_aether.explicacion}`
+								);
+							}
+						}
+					})
+					.catch((e) => console.log("n8n no disponible o error de red:", e));
 			} catch (err) {
 				console.error("Error contactando n8n:", err);
 			}
+			// ============================================================
 
 			setMsg("");
 			setCat("");
