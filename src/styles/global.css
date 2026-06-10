@@ -1,9 +1,7 @@
-@import "tailwindcss";
-
 /* BASE */
 body {
-	background-color: black;
-	color: white;
+	/* background-color: black;  <-- ELIMINADO PARA USAR TAILWIND */
+	/* color: white; <-- ELIMINADO PARA USAR TAILWIND */
 	overflow: hidden; /* Evita scrollbars en la app principal */
 }
 

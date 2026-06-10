@@ -1,5 +1,8 @@
 {
-  "extends": "astro/tsconfigs/strict",
+  // CAMBIA ESTA LÍNEA:
+  "extends": "./node_modules/astro/tsconfigs/strict.json", 
+  // POR LA LÍNEA ORIGINAL: "extends": "astro/tsconfigs/strict",
+
   "include": [
     ".astro/types.d.ts",
     "**/*"
